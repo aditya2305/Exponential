@@ -10,7 +10,7 @@ export const addNewLead = async (req, res) => {
 
     if (telegramUserId) {
         try {
-            await sendTelegramMessage( telegramUserId, "Thank you for your application for health insurance. Are you looking for yourself or the family today? Press STOP to end.");
+            await sendTelegramMessage( telegramUserId, "Thank you for your application for health insurance. Are you looking for yourself or the family today? Press send STOP to end.");
         } catch (telegramError) {
             console.error("Error sending Telegram message:", telegramError);
         }
