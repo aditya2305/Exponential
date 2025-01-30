@@ -2,6 +2,7 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import mongoose from "mongoose"
+import { addNewLead } from "./src/controllers/leadsController.js";
 
 dotenv.config();
 
@@ -16,6 +17,13 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTop
 .catch((err) => {
     console.error('Database connection error:', err);
 });
+
+
+app.get("/", (req, res)=>{
+    res.send("server running")
+})
+
+app.post("/add-lead", addNewLead);
 
 
 const PORT = process.env.PORT || 3001;
