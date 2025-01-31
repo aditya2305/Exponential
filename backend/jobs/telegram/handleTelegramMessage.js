@@ -12,8 +12,14 @@ export const handleTelegramUpdate = async (update) => {
 
     const chatId = update.message.chat.id;
     const text = update.message.text || "";
+    const fromBot = update.message.from?.is_bot;
 
     if (String(chatId) === String(ADMIN_CHAT_ID)) {
+
+      if (fromBot) {
+        return;
+      }
+
       await handleAdminMessage(text);
       return;
     }

@@ -11,7 +11,10 @@ export const sendTelegramMessage = async (chatId, text) => {
       chat_id: chatId,
       text,
     });
-    return response.data;
+
+    const messageId = response.data?.result?.message_id;
+    return messageId;
+
   } catch (error) {
     console.error("Error sending Telegram message:", error.response?.data || error.message);
     throw error;
