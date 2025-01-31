@@ -26,14 +26,22 @@ export const handleTelegramUpdate = async (update) => {
 
 const handleUserMessage = async (chatId, userText) => {
   let lead = await Lead.findOne({ telegramUserId: chatId });
-  if (!lead) {
-    lead = new Lead({ telegramUserId: chatId });
-  }
-
+  
   const normalizedText = userText.trim().toLowerCase();
 
   if (normalizedText === "/start") {
-    return;
+    if (!lead) {
+      lead = new Lead({ telegramUserId: chatId });
+      await lead.save(); 
+      await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+    }
+    return; 
+  }
+
+  if (!lead) {
+    lead = new Lead({ telegramUserId: chatId });
+    await lead.save();
+    await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
   }
 
   if (normalizedText === "stop") {
@@ -157,7 +165,10 @@ const rejectNextPendingMessage = async () => {
 
     const userChatId = leadToUpdate.telegramUserId;
     await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user (Chat ID: ${userChatId}).`);
-    await sendTelegramMessage(userChatId, "Your recent message was reviewed and rejected. Please let us know how we can assist you further.");
+    await sendTelegramMessage(
+      userChatId,
+      "Your message was reviewed and rejected. Please let us know how we can help further."
+    );
   } catch (error) {
     console.error("Error in rejectNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the next pending message.");
@@ -199,7 +210,10 @@ const changeNextPendingMessage = async (updatedText) => {
 
     const userChatId = leadToUpdate.telegramUserId;
     await sendTelegramMessage(userChatId, updatedText);
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Changed and sent updated message to user (Chat ID: ${userChatId}).`);
+    await sendTelegramMessage(
+      ADMIN_CHAT_ID,
+      `Changed and sent updated message to user (Chat ID: ${userChatId}).`
+    );
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the next pending message.");
