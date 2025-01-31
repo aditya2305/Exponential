@@ -1,5 +1,5 @@
-import Lead from "../../models/leadModel.js";
-import { sendTelegramMessage } from "../../jobs/telegram/sendTelegramMessage.js";
+import Lead from "../models/leadModel.js";
+import { sendTelegramMessage } from "../jobs/telegram/sendTelegramMessage.js";
 
 export const addNewLead = async (req, res) => {
   try {

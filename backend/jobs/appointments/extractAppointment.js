@@ -1,0 +1,47 @@
+import { getClaudeResponse } from "../claude/getClaudeResponse.js";
+
+export const checkForAppointment = async (conversation) => {
+  try {
+    const prompt = `
+You are an AI that extracts appointment info from a conversation.
+Answer in JSON ONLY with this format:
+
+{
+  "hasAppointment": true/false,
+  "appointmentDateTime": "<exact date/time string or empty>",
+  "timeZone": "<time zone if mentioned (like 'EST' or 'IST') or empty>"
+}
+
+Conversation:
+${conversation
+  .map((m) => `${m.role}: ${m.content}`)
+  .join("\n")}
+
+Has the user explicitly scheduled a day/time to talk? Return true if so, false otherwise.
+If true, parse the date/time from their message. If the resulting date/time is in the past relative to "now," 
+interpret it as the next occurrence in the future. Current year is 2025, the appointmentDateTime you give should have 2025 in it as year. 
+If you can't parse it exactly, leave appointmentDateTime empty.
+Also, if a time zone is mentioned, put it in "timeZone". If none is mentioned, keep it empty.
+`;
+
+    const extractionResult = await getClaudeResponse([
+      { role: "user", content: prompt },
+    ]);
+
+    if (!extractionResult) return null;
+
+    const text = extractionResult?.content?.[0]?.text?.trim() || "";
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      console.error("Error parsing JSON from Claude:", err);
+      return null;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error("Error checking for appointment:", error);
+    return null;
+  }
+};

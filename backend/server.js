@@ -2,7 +2,7 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import mongoose from "mongoose"
-import { addNewLead } from "./src/controllers/leadsController.js";
+import { addNewLead } from "./controllers/leadsController.js";
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 
@@ -27,7 +27,6 @@ app.get("/", (req, res) => {
 app.post("/add-lead", addNewLead);
 
 app.post("/webhook/telegram", async (req, res) => {
-    console.log("Webhook received an update:", req.body);
   try {
     const update = req.body;
     await handleTelegramUpdate(update);
