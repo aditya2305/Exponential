@@ -3,6 +3,8 @@ import cors from "cors"
 import dotenv from "dotenv"
 import mongoose from "mongoose"
 import { addNewLead } from "./src/controllers/leadsController.js";
+import { setWebhook } from "./jobs/telegram/setWebhook.js";
+import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 
 dotenv.config();
 
@@ -18,15 +20,32 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTop
     console.error('Database connection error:', err);
 });
 
+app.get("/", (req, res) => {
+  res.send("Server is running");
+});
 
-app.get("/", (req, res)=>{
-    res.send("server running")
-})
 
 app.post("/add-lead", addNewLead);
 
 
-const PORT = process.env.PORT || 3001;
-const HOST = process.env.HOST || '0.0.0.0';
+app.post("/webhook/telegram", async (req, res) => {
+    console.log("Webhook received an update:", req.body);
+  try {
+    const update = req.body;
+    await handleTelegramUpdate(update);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error in /webhook/telegram route:", error);
+    res.sendStatus(200); 
+  }
+});
 
-app.listen(PORT, HOST, ()=>{"Server started on port 3001"});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, async () => {
+  console.log(`Server listening on port ${PORT}`);
+
+  await setWebhook();
+  console.log("Webhook set.");
+});
