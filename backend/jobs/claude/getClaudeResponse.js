@@ -10,7 +10,7 @@ const client = new Anthropic({
 export const getClaudeResponse = async (messages) => {
   try {
 
-    const promptIntro = `Someone has submitted a quote for insurance, your goal is to try to book an appointment with them. Speak as if you are talking to them over sms.\n\nConversation so far:\n`;
+    const promptIntro = `Someone has submitted a quote for insurance, your goal is to try to book an appointment with them. Speak as if you are talking to them over sms. If they try to book an appointment ask for specifics like exact date, time, month before confirming.\n\nConversation so far:\n`;
     
     const conversationText = messages
       .map((m) => `${m.role}: ${m.content}`)

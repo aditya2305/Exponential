@@ -14,12 +14,12 @@ import { checkAllLeadsForAppointments, scheduleAppointmentReminders } from "./jo
 
     scheduleAppointmentReminders();
 
-    await checkAllLeadsForAppointments();
+    // await checkAllLeadsForAppointments()
 
-    // setInterval(async () => {
-    //   console.log("Checking leads for new appointments...");
-    //   await checkAllLeadsForAppointments();
-    // },2 * 60 * 1000);
+    setInterval(async () => {
+      console.log("Checking leads for new appointments...");
+      await checkAllLeadsForAppointments();
+    },10 * 60 * 1000);
 
     console.log("Appointment system started.");
   } catch (error) {
