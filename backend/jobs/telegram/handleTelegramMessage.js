@@ -51,6 +51,11 @@ const handleUserMessage = async (chatId, userText) => {
     return;
   }
 
+  if (userText.trim() === "") {
+    // Ignore empty messages
+    return;
+  }
+
   lead.messages.push({ role: "user", content: userText });
   await lead.save();
 
