@@ -30,7 +30,13 @@ const handleUserMessage = async (chatId, userText) => {
     lead = new Lead({ telegramUserId: chatId });
   }
 
-  if (userText.trim().toLowerCase() === "stop") {
+  const normalizedText = userText.trim().toLowerCase();
+
+  if (normalizedText === "/start") {
+    return;
+  }
+
+  if (normalizedText === "stop") {
     lead.unsubscribed = true;
     await lead.save();
     await sendTelegramMessage(chatId, "You have unsubscribed. Thank you!");
