@@ -14,7 +14,7 @@ import { checkAllLeadsForAppointments, scheduleAppointmentReminders } from "./jo
 
     scheduleAppointmentReminders();
 
-    // await checkAllLeadsForAppointments()
+    await checkAllLeadsForAppointments()
 
     setInterval(async () => {
       console.log("Checking leads for new appointments...");

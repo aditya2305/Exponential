@@ -27,13 +27,6 @@ export const checkAllLeadsForAppointments = async () => {
       });
 
       if (existingScheduledAppt) {
-        await sendTelegramMessage(
-          lead.telegramUserId,
-          `📅 *Appointment Already Scheduled:*\nYou already have a scheduled appointment on ${moment(existingScheduledAppt.appointmentDate)
-            .tz(existingScheduledAppt.timeZone)
-            .format("YYYY-MM-DD HH:mm z")} (${existingScheduledAppt.timeZone}). Please wait until it is completed before scheduling another.`,
-          { parse_mode: "Markdown" }
-        );
         continue;
       }
 
@@ -68,7 +61,7 @@ export const checkAllLeadsForAppointments = async () => {
         try {
           const appt = new Appointment({
             telegramUserId: lead.telegramUserId,
-            username: lead.username || "Unknown",
+            username: lead.username || null,
             appointmentDate: parsed.utc().toDate(), // store in UTC
             timeZone: finalTimeZone,
             status: "scheduled"
@@ -77,7 +70,7 @@ export const checkAllLeadsForAppointments = async () => {
 
           const msgId = await sendTelegramMessage(
             ADMIN_CHAT_ID,
-            `📅 *New Appointment Booked:*\n*User ID:* ${lead.telegramUserId}\n*Date & Time:* ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`,
+            `📅 *New Appointment Booked*${lead.username ? `\nUsername: ${lead.username}`: ""}\nUser ID: ${lead.telegramUserId}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`,
             { parse_mode: "Markdown" }
           );
 
@@ -96,7 +89,7 @@ export const checkAllLeadsForAppointments = async () => {
             console.log(`Duplicate appointment for user ID ${lead.telegramUserId} at ${dtString}. Skipping.`);
             await sendTelegramMessage(
               lead.telegramUserId,
-              `⚠️ *Duplicate Appointment Detected:*\nYou already have an appointment scheduled at ${dtString}. Please choose a different time.`,
+              `⚠️ *Duplicate Appointment Detected*\nYou already have an appointment scheduled at ${dtString}. Please choose a different time.`,
               { parse_mode: "Markdown" }
             );
           } else {
@@ -112,7 +105,7 @@ export const checkAllLeadsForAppointments = async () => {
 
 export const scheduleAppointmentReminders = () => {
   schedule.scheduleJob("*/1 * * * *", async () => {
-    console.log("Checking for appointments to remind...");
+    // console.log("Checking for appointments to remind...");
     try {
       const now = new Date();
 
@@ -128,13 +121,13 @@ export const scheduleAppointmentReminders = () => {
 
         await sendTelegramMessage(
           ADMIN_CHAT_ID,
-          `🔔 *Appointment Reminder:*\nIt's time for the appointment with user ID *${appt.telegramUserId}*\n*Date & Time:* ${localTime} (${appt.timeZone})`,
+          `🔔 *Appointment Reminder*\nIt's time for the appointment with ${appt.username ? `username *${appt.username}*\n` : ""}user ID *${appt.telegramUserId}*\n*Date & Time:* ${localTime} (${appt.timeZone})`,
           { parse_mode: "Markdown" }
         );
 
         await sendTelegramMessage(
           appt.telegramUserId,
-          `🔔 *Appointment Reminder:*\nHi! It's time for your scheduled appointment on ${localTime}.`,
+          `🔔 *Appointment Reminder*\nHi! It's time for your scheduled appointment on ${localTime}.`,
           { parse_mode: "Markdown" }
         );
 

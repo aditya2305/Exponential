@@ -13,6 +13,7 @@ export const handleTelegramUpdate = async (update) => {
     const chatId = update.message.chat.id;
     const text = update.message.text || "";
     const fromBot = update.message.from?.is_bot;
+    const userTgUsername = update.message.from?.username || null;
 
     if (String(chatId) === String(ADMIN_CHAT_ID)) {
 
@@ -24,30 +25,41 @@ export const handleTelegramUpdate = async (update) => {
       return;
     }
 
-    await handleUserMessage(chatId, text);
+    await handleUserMessage(chatId, text, userTgUsername);
   } catch (error) {
     console.error("Error in handleTelegramUpdate:", error);
   }
 };
 
-const handleUserMessage = async (chatId, userText) => {
+const handleUserMessage = async (chatId, userText, userTgUsername) => {
   let lead = await Lead.findOne({ telegramUserId: chatId });
   
   const normalizedText = userText.trim().toLowerCase();
 
   if (normalizedText === "/start") {
+    await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+
     if (!lead) {
-      lead = new Lead({ telegramUserId: chatId });
+      lead = new Lead({ telegramUserId: chatId, username: userTgUsername || null });
       await lead.save(); 
-      await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+    } else{
+      if (lead.username !== userTgUsername) {
+        lead.username = userTgUsername || null;
+        await lead.save();
+      }
     }
+    
     return; 
   }
 
   if (!lead) {
-    lead = new Lead({ telegramUserId: chatId });
+    lead = new Lead({ telegramUserId: chatId, username: userTgUsername || null });
     await lead.save();
-    await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+  }
+  else{
+    if (lead.username !== userTgUsername){
+      lead.username = userTgUsername || null;
+    }
   }
 
   if (normalizedText === "stop") {
@@ -73,7 +85,7 @@ const handleUserMessage = async (chatId, userText) => {
 
   const assistantText = claudeReplyObject?.content?.[0]?.text || "[No text returned]";
 
-  const approvalText = `New message from User (ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to take action.`;
+  const approvalText = `New message from User (${lead.username ? `Username: ${lead.username},` : ""} ID: ${chatId}) :\n"${userText}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to take action.`;
   await sendTelegramMessage(ADMIN_CHAT_ID, approvalText);
 
   lead.messages.push({ role: "assistant", content: assistantText, approved: false });
@@ -125,7 +137,7 @@ const approveNextPendingMessage = async () => {
 
     const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
     if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for Chat ID: ${lead.telegramUserId}.`);
+      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
       return;
     }
 
@@ -135,7 +147,7 @@ const approveNextPendingMessage = async () => {
     const userChatId = leadToUpdate.telegramUserId;
     const assistantMessage = leadToUpdate.messages[msgIndex].content;
     await sendTelegramMessage(userChatId, assistantMessage);
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Approved and sent message to user (Chat ID: ${userChatId}).`);
+    await sendTelegramMessage(ADMIN_CHAT_ID, `Approved and sent message to user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`);
   } catch (error) {
     console.error("Error in approveNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error approving the next pending message.");
@@ -167,7 +179,7 @@ const rejectNextPendingMessage = async () => {
 
     const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
     if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for Chat ID: ${lead.telegramUserId}.`);
+      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
       return;
     }
 
@@ -175,11 +187,11 @@ const rejectNextPendingMessage = async () => {
     await leadToUpdate.save();
 
     const userChatId = leadToUpdate.telegramUserId;
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user (Chat ID: ${userChatId}).`);
-    await sendTelegramMessage(
-      userChatId,
-      "Your message was reviewed and rejected. Please let us know how we can help further."
-    );
+    await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`);
+    // await sendTelegramMessage(
+    //   userChatId,
+    //   "Your message was reviewed and rejected. Please let us know how we can help further."
+    // );
   } catch (error) {
     console.error("Error in rejectNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the next pending message.");
@@ -211,7 +223,7 @@ const changeNextPendingMessage = async (updatedText) => {
 
     const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
     if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for Chat ID: ${lead.telegramUserId}.`);
+      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
       return;
     }
 
@@ -223,7 +235,7 @@ const changeNextPendingMessage = async (updatedText) => {
     await sendTelegramMessage(userChatId, updatedText);
     await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Changed and sent updated message to user (Chat ID: ${userChatId}).`
+      `Changed and sent updated message to user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`
     );
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
