@@ -1,5 +1,3 @@
-// jobs/telegram/handleTelegramUpdate.js
-
 import Lead from "../../models/leadModel.js";
 import { sendTelegramMessage } from "./sendTelegramMessage.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
@@ -50,7 +48,7 @@ const handleUserMessage = async (chatId, userText) => {
 
   const assistantText = claudeReplyObject?.content?.[0]?.text || "[No text returned]";
 
-  const approvalText = `New message from User (ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve" or "/reject" to take action.`;
+  const approvalText = `New message from User (ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to take action.`;
   await sendTelegramMessage(ADMIN_CHAT_ID, approvalText);
 
   lead.messages.push({ role: "assistant", content: assistantText, approved: false });
@@ -59,12 +57,19 @@ const handleUserMessage = async (chatId, userText) => {
 
 const handleAdminMessage = async (text) => {
   const parts = text.trim().split(" ");
-  const command = parts[0];
+  const command = parts[0].toLowerCase();
+  const newText = parts.slice(1).join(" ");
 
   if (command === "/approve") {
     await approveNextPendingMessage();
   } else if (command === "/reject") {
     await rejectNextPendingMessage();
+  } else if (command === "/change") {
+    if (newText.trim() === "") {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Usage: /change <your updated response>");
+      return;
+    }
+    await changeNextPendingMessage(newText);
   } else {
     await sendTelegramMessage(ADMIN_CHAT_ID, `Unknown command: ${command}`);
   }
@@ -150,5 +155,47 @@ const rejectNextPendingMessage = async () => {
   } catch (error) {
     console.error("Error in rejectNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the next pending message.");
+  }
+};
+
+const changeNextPendingMessage = async (updatedText) => {
+  try {
+    const lead = await Lead.findOne({
+      "messages.role": "assistant",
+      "messages.approved": false,
+    })
+      .sort({ "messages.createdAt": 1 })
+      .lean();
+
+    if (!lead) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to change.");
+      return;
+    }
+
+    const msgIndex = lead.messages.findIndex(
+      (m) => m.role === "assistant" && m.approved === false
+    );
+
+    if (msgIndex === -1) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to change.");
+      return;
+    }
+
+    const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
+    if (!leadToUpdate) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for Chat ID: ${lead.telegramUserId}.`);
+      return;
+    }
+
+    leadToUpdate.messages[msgIndex].content = updatedText;
+    leadToUpdate.messages[msgIndex].approved = true;
+    await leadToUpdate.save();
+
+    const userChatId = leadToUpdate.telegramUserId;
+    await sendTelegramMessage(userChatId, updatedText);
+    await sendTelegramMessage(ADMIN_CHAT_ID, `Changed and sent updated message to user (Chat ID: ${userChatId}).`);
+  } catch (error) {
+    console.error("Error in changeNextPendingMessage:", error);
+    await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the next pending message.");
   }
 };

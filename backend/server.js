@@ -24,9 +24,7 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-
 app.post("/add-lead", addNewLead);
-
 
 app.post("/webhook/telegram", async (req, res) => {
     console.log("Webhook received an update:", req.body);
@@ -39,7 +37,6 @@ app.post("/webhook/telegram", async (req, res) => {
     res.sendStatus(200); 
   }
 });
-
 
 const PORT = process.env.PORT || 3000;
 
