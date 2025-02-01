@@ -18,10 +18,9 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: "America/New_York",
     },
-    status: {
-      type: String,
-      enum: ["scheduled", "completed", "missed"],
-      default: "scheduled",
+    called: { 
+      type: Boolean, 
+      default: false 
     },
     createdAt: {
       type: Date,
