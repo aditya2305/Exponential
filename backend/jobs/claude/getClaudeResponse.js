@@ -7,16 +7,20 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-export const getClaudeResponse = async (messages) => {
+export const getClaudeResponse = async (messages, currentDate, currentTimeZone) => {
   try {
 
-    const promptIntro = `Someone has submitted a quote for insurance, your goal is to try to book an appointment with them. Speak as if you are talking to them over sms. For booking details of appointment, remember to ask for specifics like exact full date, time and timezone, and give a full list of all these details and ask for confirmation.\n\nConversation so far:\n`;
-    
-    const conversationText = messages
-      .map((m) => `${m.role}: ${m.content}`)
-      .join("\n");
+    const conversationText = "messages=[\n" + messages.map(m => {
+      const escapedContent = m.content.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+      return `  {\n    "role": "${m.role}",\n    "content": [\n      {\n        "type": "text",\n        "text": "${escapedContent}"\n      }\n    ]\n  }`;
+    }).join(",\n") + "\n]";
 
-    const fullPrompt = promptIntro + conversationText;
+    const promptIntro = `Today is ${currentDate} Timezone - (${currentTimeZone}).
+    Someone has submitted a quote for insurance and is trying to book an appointment. Your goal is to book an appointment with them. You have today's date and timezone; you can interpret relative dates like tomorrow accordingly. If either of (Today or Timezone) is undefined, make sure you have full details (exact date, time, and timezone) either by extraction or by asking directly if needed. Speak as if you are talking to them over SMS.
+    Here is the conversation so far:
+    ${conversationText}`;
+
+    const fullPrompt = promptIntro;
 
     const msg = await client.messages.create({
       model: "claude-3-5-sonnet-20241022",

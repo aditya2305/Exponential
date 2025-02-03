@@ -1,10 +1,26 @@
 import Lead from "../../models/leadModel.js";
 import { sendTelegramMessage } from "./sendTelegramMessage.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
+import moment from "moment-timezone";
 import dotenv from "dotenv";
 dotenv.config();
 
 const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_ID;
+
+const countryCodeToTimezone = {
+  "91": "Asia/Kolkata",
+  "1": "America/New_York",
+  "44": "Europe/London"
+};
+
+const getTimezoneFromPhoneNumber = (phoneNumber) => {
+  const digits = phoneNumber.replace(/\D/g, "");
+  for (let len = 1; len <= 3; len++) {
+    const code = digits.substring(0, len);
+    if (countryCodeToTimezone[code]) return countryCodeToTimezone[code];
+  }
+  return "Asia/Kolkata";
+};
 
 export const handleTelegramUpdate = async (update) => {
   try {
@@ -76,8 +92,12 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
 
   lead.messages.push({ role: "user", content: userText });
   await lead.save();
+  
+  const now = moment();
+  const currentDate = now.format("YYYY-MM-DD");
+  const currentTimeZone = lead.phoneNumber ? getTimezoneFromPhoneNumber(lead.phoneNumber) : "Asia/Kolkata"; //"America/New_York";
 
-  const claudeReplyObject = await getClaudeResponse(lead.messages);
+  const claudeReplyObject = await getClaudeResponse(lead.messages, currentDate, currentTimeZone);
   if (!claudeReplyObject) {
     console.error("Claude did not return a reply");
     return;
@@ -91,6 +111,7 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
   lead.messages.push({ role: "assistant", content: assistantText, approved: false });
   await lead.save();
 };
+
 
 const handleAdminMessage = async (text) => {
   const parts = text.trim().split(" ");

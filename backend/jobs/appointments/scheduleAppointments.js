@@ -36,8 +36,8 @@ export const checkAllLeadsForAppointments = async () => {
         continue;
       }
 
-      let finalTimeZone = "America/New_York";
-      if (userTZ.toUpperCase() === "IST") {
+      let finalTimeZone = userTZ || "America/New_York";
+      if ((userTZ.toUpperCase() === "IST")) {
         finalTimeZone = "Asia/Kolkata";
       } else if (userTZ.toUpperCase() === "CST") {
         finalTimeZone = "America/Chicago";
