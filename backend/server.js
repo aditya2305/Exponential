@@ -2,9 +2,10 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import mongoose from "mongoose"
-import { addNewLead } from "./controllers/leadsController.js";
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
+import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
+import { addNewLeadSlickText } from "./controllers/leadsController.js";
 
 dotenv.config();
 
@@ -24,7 +25,7 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-app.post("/add-lead", addNewLead);
+app.post("/add-lead-slicktext", addNewLeadSlickText);
 
 app.post("/webhook/telegram", async (req, res) => {
   try {
@@ -34,6 +35,16 @@ app.post("/webhook/telegram", async (req, res) => {
   } catch (error) {
     console.error("Error in /webhook/telegram route:", error);
     res.sendStatus(200); 
+  }
+});
+
+app.post("/webhook/slicktext", async (req, res) => {
+  try {
+    await handleSlickTextReply(req.body); 
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error in /webhook/slicktext:", error);
+    res.sendStatus(200);
   }
 });
 
