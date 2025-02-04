@@ -22,6 +22,23 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean, 
       default: false 
     },
+
+    phoneNumber: { 
+      type: String
+    },      
+    pickedUp: { 
+      type: Boolean, 
+      default: false 
+    },
+    callDuration: { 
+      type: Number, 
+      default: 0 
+    },
+    recordingUrl: { 
+      type: String, 
+      default: "" 
+    },
+
     createdAt: {
       type: Date,
       default: Date.now,

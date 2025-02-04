@@ -6,6 +6,8 @@ import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
 import { addNewLeadSlickText } from "./controllers/leadsController.js";
+import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
+import { makeCall } from "./jobs/twilio/makeCall.js";
 
 dotenv.config();
 
@@ -26,6 +28,30 @@ app.get("/", (req, res) => {
 });
 
 app.post("/add-lead-slicktext", addNewLeadSlickText);
+
+app.get("/twilio/voice", handleTwilioVoice); 
+app.post("/twilio/status", handleTwilioStatus);
+
+
+app.get("/test-make-call", async (req, res) => {
+  try {
+
+    const { phone } = req.body; 
+    if (!phone) {
+      return res.status(400).send("Missing 'phone' query param");
+    }
+
+    // For testing, let's use a random ID or pass "testId"
+    // In real usage, you'd pass an actual appointment._id
+    const appointmentId = "testTwilio123";
+
+    const sid = await makeCall(appointmentId, phone);
+    res.status(200).json({ success: true, sid });
+  } catch (error) {
+    console.error("Error in /test-make-call:", error);
+    res.status(500).send("Internal error");
+  }
+});
 
 app.post("/webhook/telegram", async (req, res) => {
   try {

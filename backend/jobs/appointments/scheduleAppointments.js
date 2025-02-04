@@ -4,6 +4,7 @@ import { checkForAppointment } from "./extractAppointment.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 import schedule from "node-schedule";
 import moment from "moment-timezone";
+import { makeCall } from "../twilio/makeCall.js";
 import dotenv from "dotenv";
 import axios from "axios";
 
@@ -110,6 +111,9 @@ export const scheduleAppointmentReminders = () => {
           `🔔 *Appointment Reminder*\nHi! It's time for your scheduled appointment on ${localTime}.`,
           { parse_mode: "Markdown" }
         );
+
+        await makeCall(appt);
+
         appt.called = true;
         await appt.save();
         console.log(`Appointment with user ID ${appt.telegramUserId} at ${localTime} marked as called=true.`);
