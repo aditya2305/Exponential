@@ -8,6 +8,7 @@ import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js
 import { addNewLeadSlickText } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -42,7 +43,6 @@ app.get("/test-make-call", async (req, res) => {
     }
 
     // For testing, let's use a random ID or pass "testId"
-    // In real usage, you'd pass an actual appointment._id
     const appointmentId = "testTwilio123";
 
     const sid = await makeCall(appointmentId, phone);
@@ -66,7 +66,25 @@ app.post("/webhook/telegram", async (req, res) => {
 
 app.post("/webhook/slicktext", async (req, res) => {
   try {
-    await handleSlickTextReply(req.body); 
+    // Verify webhook signature
+    const postData = JSON.stringify(req.body);
+    const signature = req.headers['x-slicktext-signature'];
+    const webhookSecret = process.env.SLICKTEXT_WEBHOOK_SECRET;
+
+    const hmacDigest = crypto
+      .createHmac('md5', webhookSecret)
+      .update(postData)
+      .digest('hex');
+
+    if (hmacDigest !== signature) {
+      console.error('Invalid webhook signature');
+      return res.sendStatus(401);
+    }
+
+    // Handle the incoming message
+    await handleSlickTextReply(req.body);
+    
+    // Respond within 5 seconds
     res.sendStatus(200);
   } catch (error) {
     console.error("Error in /webhook/slicktext:", error);

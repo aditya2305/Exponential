@@ -18,8 +18,6 @@ export const makeCall = async (appointmentId, phoneNumber) => {
       throw new Error("No phone number specified for makeCall()");
     }
 
-    // We'll just create a unique "fake" ID if you don't have a real DB doc. 
-    // Or if you have an appointment doc, pass its _id.
     const call = await client.calls.create({
       to: phoneNumber,
       from: TWILIO_CALLER_NUMBER,

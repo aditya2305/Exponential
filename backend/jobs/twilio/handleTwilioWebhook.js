@@ -3,18 +3,9 @@ import twilio from 'twilio';
 
 const { twiml: TwiML } = twilio;
 
-/*
- * CHANGES / COMMENTS:
- * 1) handleTwilioVoice: Twilio does a GET here with ?appointmentId=.
- *    We return TwiML that forwards the call to FORWARD_NUMBER.
- * 2) handleTwilioStatus: Twilio does a POST here with call events.
- *    We'll mark appointment as "picked up" if status is "completed."
- *    Or if "no-answer," we'll note that user didn't pick up.
- */
-
 export const handleTwilioVoice = async (req, res) => {
   try {
-    const { appointmentId } = req.query;
+
     const FORWARD_NUMBER = process.env.FORWARD_NUMBER;
 
     const voiceResponse = new TwiML.VoiceResponse();

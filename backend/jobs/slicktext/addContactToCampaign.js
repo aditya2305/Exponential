@@ -2,19 +2,18 @@ import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config();
 
-const SLICKTEXT_API_KEY = process.env.SLICKTEXT_API_KEY; 
-
-export const addContactToCampaign = async (phoneNumber, campaignId) => {
+export const addContactToCampaign = async (phoneNumber) => {
   try {
     const response = await axios.post(
-      "https://api.slicktext.com/v1/contact", 
+      "https://dev.slicktext.com/v1/contacts", 
       {
         phone_number: phoneNumber,
-        campaign_id: campaignId
+        // Additional fields as needed
       },
       {
         headers: {
-          Authorization: `Bearer ${SLICKTEXT_API_KEY}`
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SLICKTEXT_API_KEY}`
         }
       }
     );
