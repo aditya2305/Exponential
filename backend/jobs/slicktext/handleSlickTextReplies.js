@@ -1,12 +1,15 @@
 import Lead from "../../models/leadModel.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
-import { sendSlickTextMessage } from "./sendSlickTextMessage.js";
-import moment from "moment-timezone";
+// import { sendSlickTextMessage } from "./sendSlickTextMessage.js";
+// import moment from "moment-timezone";
 
-export const handleSlickTextReply = async (inboundMessage) => {
+export const handleSlickTextReply = async (webhookData) => {
   try {
-    const { phone_number, message } = inboundMessage;
+    const { data } = webhookData;
+    const phone_number = data.contact_id;
+    const message = data.last_message;
+    
     if (!phone_number || !message) return;
 
     // Normalize phone number

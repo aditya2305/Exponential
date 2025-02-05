@@ -5,7 +5,7 @@ import mongoose from "mongoose"
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
-import { addNewLeadSlickText } from "./controllers/leadsController.js";
+import { addNewLeadSlickText, createLead } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
 import crypto from "crypto";
@@ -29,6 +29,7 @@ app.get("/", (req, res) => {
 });
 
 app.post("/add-lead-slicktext", addNewLeadSlickText);
+app.post("/create-lead", createLead);
 
 app.get("/twilio/voice", handleTwilioVoice); 
 app.post("/twilio/status", handleTwilioStatus);
@@ -81,14 +82,26 @@ app.post("/webhook/slicktext", async (req, res) => {
       return res.sendStatus(401);
     }
 
-    // Handle the incoming message
-    await handleSlickTextReply(req.body);
+    // Handle different webhook events
+    const eventName = req.body.name;
+    switch(eventName) {
+      case 'inbox_message_received':
+        await handleSlickTextReply(req.body);
+        break;
+      case 'campaign_sent':
+        console.log('Campaign sent successfully:', req.body.data);
+        break;
+      case 'campaign_failed':
+        console.error('Campaign failed:', req.body.data);
+        break;
+      default:
+        console.log('Unhandled SlickText event:', eventName);
+    }
     
-    // Respond within 5 seconds
     res.sendStatus(200);
   } catch (error) {
     console.error("Error in /webhook/slicktext:", error);
-    res.sendStatus(200);
+    res.sendStatus(200); // Always return 200 to acknowledge receipt
   }
 });
 

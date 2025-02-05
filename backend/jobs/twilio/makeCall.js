@@ -1,5 +1,6 @@
 import twilio from "twilio";
 import dotenv from "dotenv";
+import axios from "axios";
 dotenv.config();
 
 const {
@@ -7,7 +8,9 @@ const {
   TWILIO_AUTH_TOKEN,
   TWILIO_CALLER_NUMBER,
   FORWARD_NUMBER,
-  BASE_URL
+  BASE_URL,
+  SLICKTEXT_API_KEY,
+  BRAND_ID
 } = process.env;
 
 const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
@@ -34,7 +37,39 @@ export const makeCall = async (appointmentId, phoneNumber) => {
   }
 };
 
+// POST https://dev.slicktext.com/v1/contacts
+const createContact = async (phoneNumber) => {
+  const response = await axios.post('https://dev.slicktext.com/v1/contacts', {
+    mobile_number: phoneNumber,
+    opt_in_status: "subscribed",
+    source: "api"
+  }, {
+    headers: {
+      'Authorization': `Bearer ${SLICKTEXT_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  return response.data;
+};
 
+// POST https://dev.slicktext.com/v1/brands/{{brand_id}}/campaigns/
+const sendMessage = async (phoneNumber, message) => {
+  const response = await axios.post(`https://dev.slicktext.com/v1/brands/${BRAND_ID}/campaigns/`, {
+    name: `Message to ${phoneNumber}`,
+    body: message,
+    status: "send", // sends immediately
+    audience: {
+      contact_lists: [], // Specify the contact list ID where the user is added
+      segments: [] // Or use segments if you've organized contacts that way
+    }
+  }, {
+    headers: {
+      'Authorization': `Bearer ${SLICKTEXT_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  return response.data;
+};
 
 // import twilio from "twilio";
 // import dotenv from "dotenv";
