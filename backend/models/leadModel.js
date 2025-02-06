@@ -1,16 +1,5 @@
 import mongoose from "mongoose";
-
-const messageSchema = new mongoose.Schema({
-  role: {
-    type: String,
-    enum: ["user", "assistant"],
-    required: true,
-  },
-  content: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-
-  approved: { type: Boolean, default: true }
-});
+import messageSchema from "./messageSchema.js";
 
 const leadSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: false },

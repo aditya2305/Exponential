@@ -4,6 +4,7 @@ import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import moment from "moment-timezone";
 import axios from "axios";
 import dotenv from "dotenv";
+import ChangedResponse from "../../models/changedResponseModel.js";
 // import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 dotenv.config();
 
@@ -287,9 +288,23 @@ const changeNextPendingMessage = async (updatedText) => {
       return;
     }
 
+    // Create changed response record
+    const changedResponse = new ChangedResponse({
+      leadId: lead._id,
+      originalMessage: lead.messages[msgIndex - 1],    // User's message
+      claudeResponse: lead.messages[msgIndex],         // Claude's response
+      changedResponse: {                               // Admin's modified response
+        role: "assistant",
+        content: updatedText,
+        approved: true
+      }
+    });
+    await changedResponse.save();
+
+    // Update the lead's message as before
     const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
     if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
+      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${lead.username ? `Username: ${lead.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
       return;
     }
 
