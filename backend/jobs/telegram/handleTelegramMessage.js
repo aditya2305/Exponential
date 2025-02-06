@@ -2,11 +2,14 @@ import Lead from "../../models/leadModel.js";
 import { sendTelegramMessage } from "./sendTelegramMessage.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import moment from "moment-timezone";
+import axios from "axios";
 import dotenv from "dotenv";
-import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
+// import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 dotenv.config();
 
 const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_ID;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const countryCodeToTimezone = {
   "91": "Asia/Kolkata",
@@ -25,6 +28,12 @@ const getTimezoneFromPhoneNumber = (phoneNumber) => {
 
 export const handleTelegramUpdate = async (update) => {
   try {
+    // Handle callback queries (button clicks)
+    if (update.callback_query) {
+      await handleCallbackQuery(update.callback_query);
+      return;
+    }
+
     if (!update.message) return;
 
     const chatId = update.message.chat.id;
@@ -33,18 +42,59 @@ export const handleTelegramUpdate = async (update) => {
     const userTgUsername = update.message.from?.username || null;
 
     if (String(chatId) === String(ADMIN_CHAT_ID)) {
-
-      if (fromBot) {
-        return;
+      if (fromBot) return;
+      
+      // Only handle text that starts with /change
+      if (text.startsWith('/change ')) {
+        const newText = text.slice(8).trim();
+        await changeNextPendingMessage(newText);
+      } else {
+        // Send message for any other text or commands
+        await sendTelegramMessage(
+          ADMIN_CHAT_ID,
+          "Direct messages are not accepted in this group."
+        );
       }
-
-      await handleAdminMessage(text);
       return;
     }
 
     await handleUserMessage(chatId, text, userTgUsername);
   } catch (error) {
     console.error("Error in handleTelegramUpdate:", error);
+  }
+};
+
+const handleCallbackQuery = async (callbackQuery) => {
+  try {
+    const action = callbackQuery.data;
+    const messageId = callbackQuery.message.message_id;
+    
+    // Answer callback query to remove loading state
+    await axios.post(`${TELEGRAM_API_URL}/answerCallbackQuery`, {
+      callback_query_id: callbackQuery.id
+    });
+
+    if (action === 'approve') {
+      await approveNextPendingMessage();
+    } else if (action === 'reject') {
+      await rejectNextPendingMessage();
+    } else if (action === 'change') {
+      // Send message prompting for new text
+      await sendTelegramMessage(
+        ADMIN_CHAT_ID,
+        "Please send the new message text with /change followed by your message"
+      );
+    }
+
+    // Remove inline keyboard after action
+    await axios.post(`${TELEGRAM_API_URL}/editMessageReplyMarkup`, {
+      chat_id: ADMIN_CHAT_ID,
+      message_id: messageId,
+      reply_markup: { inline_keyboard: [] }
+    });
+
+  } catch (error) {
+    console.error("Error handling callback query:", error);
   }
 };
 
@@ -106,32 +156,13 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
 
   const assistantText = claudeReplyObject?.content?.[0]?.text || "[No text returned]";
 
-  const approvalText = `New message from User (${lead.username ? `Username: ${lead.username},` : ""} ID: ${chatId}) :\n"${userText}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to take action.`;
-  await sendTelegramMessage(ADMIN_CHAT_ID, approvalText);
+  const approvalText = `New message from User (${lead.username ? `Username: ${lead.username},` : ""} ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"`;
+  
+  // Use the updated sendTelegramMessage with options
+  await sendTelegramMessage(ADMIN_CHAT_ID, approvalText, { withButtons: true });
 
   lead.messages.push({ role: "assistant", content: assistantText, approved: false });
   await lead.save();
-};
-
-
-const handleAdminMessage = async (text) => {
-  const parts = text.trim().split(" ");
-  const command = parts[0].toLowerCase();
-  const newText = parts.slice(1).join(" ");
-
-  if (command === "/approve") {
-    await approveNextPendingMessage();
-  } else if (command === "/reject") {
-    await rejectNextPendingMessage();
-  } else if (command === "/change") {
-    if (newText.trim() === "") {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "Usage: /change <your updated response>");
-      return;
-    }
-    await changeNextPendingMessage(newText);
-  } else {
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Unknown command: ${command}`);
-  }
 };
 
 const approveNextPendingMessage = async () => {
@@ -221,7 +252,8 @@ const rejectNextPendingMessage = async () => {
     await leadToUpdate.save();
 
     const userChatId = leadToUpdate.telegramUserId;
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`);
+    await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`);
+
     // await sendTelegramMessage(
     //   userChatId,
     //   "Your message was reviewed and rejected. Please let us know how we can help further."
@@ -269,7 +301,7 @@ const changeNextPendingMessage = async (updatedText) => {
     await sendTelegramMessage(userChatId, updatedText);
     await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Changed and sent updated message to user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`
+      `Changed and sent updated message to user ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`
     );
 
     // // Send via SlickText instead of Telegram if phone number exists

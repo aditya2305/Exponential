@@ -54,9 +54,6 @@ const leadSchema = new mongoose.Schema({
 
   preExisting: { type: Boolean, default: null },
 
-  createdAt: { type: Date, default: Date.now },
-  
-  updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true
 });
