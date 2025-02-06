@@ -5,27 +5,27 @@ import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 
 export const handleSlickTextReply = async (webhookData) => {
   try {
-
     const { data } = webhookData;
-    const phone_number = data.contact_id;
-    const message = data.last_message;
     
-    if (!phone_number || !message) return;
+    // Extract phone number and message from webhook data
+    const phoneNumber = data.contact_id;
+    const message = data.body;
+    
+    if (!phoneNumber || !message) {
+      console.error("Missing required webhook data");
+      return;
+    }
 
     // Normalize phone number
-    const normalizedPhone = phone_number.replace(/\D/g, '');
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
 
     // Find or create lead
     let lead = await Lead.findOne({ phoneNumber: normalizedPhone });
     if (!lead) {
-      lead = new Lead({ phoneNumber: normalizedPhone });
-    }
-
-    // Handle STOP command
-    if (message.trim().toLowerCase() === 'stop') {
-      lead.unsubscribed = true;
-      await lead.save();
-      return;
+      lead = new Lead({ 
+        phoneNumber: normalizedPhone,
+        source: 'slicktext'
+      });
     }
 
     // Add user message to conversation history
@@ -43,7 +43,7 @@ export const handleSlickTextReply = async (webhookData) => {
     const assistantText = claudeResp.content[0].text;
 
     // Send to admin Telegram for approval
-    const approvalText = `New SMS from +${phone_number}:\n"${message}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to finalize.`;
+    const approvalText = `New SMS from +${normalizedPhone}:\n"${message}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to finalize.`;
     await sendTelegramMessage(process.env.ADMIN_TELEGRAM_ID, approvalText);
 
     // Save Claude's response as pending

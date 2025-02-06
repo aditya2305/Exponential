@@ -2,31 +2,19 @@ import axios from "axios";
 
 export const createOrGetContact = async (phoneNumber) => {
   try {
-    // First try to get existing contact
-    const existingContactsResponse = await axios.get(
-      `https://dev.slicktext.com/v1/contacts`,
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    
+    // Create a campaign with initial message
+    const response = await axios.post(
+      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/campaigns`,
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.SLICKTEXT_API_KEY}`
-        },
-        params: {
-          mobile_number: `+${phoneNumber}`
+        name: `Initial Message to ${normalizedPhone}`,
+        body: "Thank you for your application for health insurance, are you looking for yourself or the family today? Reply STOP to end.",
+        media_url: null,
+        status: "send", // sends immediately
+        audience: {
+          all: true  // Send to all contacts
         }
-      }
-    );
-
-    if (existingContactsResponse.data?.data?.length > 0) {
-      return existingContactsResponse.data.data[0].contact_id;
-    }
-
-    // Create new contact if not found
-    const createContactResponse = await axios.post(
-      `https://dev.slicktext.com/v1/contacts`,
-      {
-        mobile_number: `+${phoneNumber}`,
-        opt_in_status: "subscribed",
-        source: "api"
       },
       {
         headers: {
@@ -36,9 +24,14 @@ export const createOrGetContact = async (phoneNumber) => {
       }
     );
     
-    return createContactResponse.data.contact_id;
+    return response.data;
   } catch (error) {
-    console.error("Error in contact management:", error);
+    console.error("Error in contact management:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      endpoint: error.config?.url,
+      requestData: error.config?.data
+    });
     throw error;
   }
 };

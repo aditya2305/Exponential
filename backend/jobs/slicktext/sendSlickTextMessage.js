@@ -7,18 +7,16 @@ export const sendSlickTextMessage = async (phoneNumber, message) => {
   try {
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
     
-    // Use the extracted contact management function
-    const contactId = await createOrGetContact(normalizedPhone);
-
-    // Create and send campaign
+    // Create a campaign to send the message
     const response = await axios.post(
       `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/campaigns`,
       {
         name: `Message to ${normalizedPhone}`,
         body: message,
-        status: "send",
+        media_url: null,
+        status: "send", // sends immediately
         audience: {
-          contacts: [contactId]
+          all: true  // Send to all contacts
         }
       },
       {
@@ -31,13 +29,6 @@ export const sendSlickTextMessage = async (phoneNumber, message) => {
 
     console.log('SlickText Campaign Created:', response.data);
     
-    // Log rate limiting info
-    console.log('Rate Limit Status:', {
-      limit: response.headers['x-ratelimit'],
-      remaining: response.headers['x-ratelimit-remaining'],
-      reset: response.headers['x-ratelimit-reset']
-    });
-
     return response.data;
 
   } catch (error) {
