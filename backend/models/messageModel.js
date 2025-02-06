@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema({
+  messageId: {
+    type: String,
+    required: true,
+    unique: true,
+    default: () => new mongoose.Types.ObjectId().toString()
+  },
   role: {
     type: String,
     required: true,
@@ -17,5 +23,8 @@ const messageSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Index for faster message lookups
+messageSchema.index({ messageId: 1 });
 
 export default messageSchema; 

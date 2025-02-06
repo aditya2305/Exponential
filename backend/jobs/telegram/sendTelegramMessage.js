@@ -10,19 +10,8 @@ export const sendTelegramMessage = async (chatId, text, options = {}) => {
     const messageData = {
       chat_id: chatId,
       text,
-      parse_mode: options.parse_mode || 'HTML'
+      parse_mode: options.parse_mode || 'Markdown'
     };
-
-    // Add buttons if withButtons is true
-    if (options.withButtons) {
-      messageData.reply_markup = {
-        inline_keyboard: [[
-          { text: '✅ Approve', callback_data: 'approve' },
-          { text: '❌ Reject', callback_data: 'reject' },
-          { text: '✏️ Change', callback_data: 'change' }
-        ]]
-      };
-    }
 
     const response = await axios.post(`${TELEGRAM_API_URL}/sendMessage`, messageData);
     return response.data?.result?.message_id;

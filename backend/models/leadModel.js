@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import messageSchema from "./messageSchema.js";
+import messageSchema from "./messageModel.js";
 
 const leadSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: false },

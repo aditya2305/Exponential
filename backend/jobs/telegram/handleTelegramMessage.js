@@ -5,6 +5,7 @@ import moment from "moment-timezone";
 import axios from "axios";
 import dotenv from "dotenv";
 import ChangedResponse from "../../models/changedResponseModel.js";
+import mongoose from "mongoose";
 // import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 dotenv.config();
 
@@ -26,6 +27,8 @@ const getTimezoneFromPhoneNumber = (phoneNumber) => {
   }
   return "Asia/Kolkata";
 };
+
+let pendingChangeMessageId = null;
 
 export const handleTelegramUpdate = async (update) => {
   try {
@@ -67,233 +70,218 @@ export const handleTelegramUpdate = async (update) => {
 
 const handleCallbackQuery = async (callbackQuery) => {
   try {
-    const action = callbackQuery.data;
-    const messageId = callbackQuery.message.message_id;
-    
-    // Answer callback query to remove loading state
+    if (!callbackQuery.data.includes(':')) {
+      const action = callbackQuery.data;
+      return;
+    }
+
+    const [action, messageId] = callbackQuery.data.split(':');
+    const messageToHandle = await Lead.findOne({ 
+      "messages.messageId": messageId 
+    });
+
+    if (!messageToHandle) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
+      return;
+    }
+
     await axios.post(`${TELEGRAM_API_URL}/answerCallbackQuery`, {
       callback_query_id: callbackQuery.id
     });
 
     if (action === 'approve') {
-      await approveNextPendingMessage();
+      await approveMessage(messageId);
     } else if (action === 'reject') {
-      await rejectNextPendingMessage();
+      await rejectMessage(messageId);
     } else if (action === 'change') {
-      // Send message prompting for new text
+      pendingChangeMessageId = messageId;
       await sendTelegramMessage(
         ADMIN_CHAT_ID,
         "Please send the new message text with /change followed by your message"
       );
     }
 
-    // Remove inline keyboard after action
     await axios.post(`${TELEGRAM_API_URL}/editMessageReplyMarkup`, {
       chat_id: ADMIN_CHAT_ID,
-      message_id: messageId,
+      message_id: callbackQuery.message.message_id,
       reply_markup: { inline_keyboard: [] }
     });
 
   } catch (error) {
     console.error("Error handling callback query:", error);
+    pendingChangeMessageId = null;
   }
 };
 
 const handleUserMessage = async (chatId, userText, userTgUsername) => {
-  let lead = await Lead.findOne({ telegramUserId: chatId });
-  
-  const normalizedText = userText.trim().toLowerCase();
+  try {
+    let lead = await Lead.findOne({ telegramUserId: chatId });
+    
+    const normalizedText = userText.trim().toLowerCase();
 
-  if (normalizedText === "/start") {
-    await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+    if (normalizedText === "/start") {
+      await sendTelegramMessage(chatId, "Hello! Thanks for reaching out.");
+
+      if (!lead) {
+        lead = new Lead({ telegramUserId: chatId, username: userTgUsername || null });
+        await lead.save(); 
+      } else{
+        if (lead.username !== userTgUsername) {
+          lead.username = userTgUsername || null;
+          await lead.save();
+        }
+      }
+      
+      return; 
+    }
 
     if (!lead) {
       lead = new Lead({ telegramUserId: chatId, username: userTgUsername || null });
-      await lead.save(); 
-    } else{
-      if (lead.username !== userTgUsername) {
+      await lead.save();
+    }
+    else{
+      if (lead.username !== userTgUsername){
         lead.username = userTgUsername || null;
-        await lead.save();
       }
     }
-    
-    return; 
-  }
 
-  if (!lead) {
-    lead = new Lead({ telegramUserId: chatId, username: userTgUsername || null });
-    await lead.save();
-  }
-  else{
-    if (lead.username !== userTgUsername){
-      lead.username = userTgUsername || null;
+    if (normalizedText === "stop") {
+      lead.unsubscribed = true;
+      await lead.save();
+      await sendTelegramMessage(chatId, "You have unsubscribed. Thank you!");
+      return;
     }
-  }
 
-  if (normalizedText === "stop") {
-    lead.unsubscribed = true;
+    if (userText.trim() === "") {
+      // Ignore empty messages
+      return;
+    }
+
+    lead.messages.push({ role: "user", content: userText });
     await lead.save();
-    await sendTelegramMessage(chatId, "You have unsubscribed. Thank you!");
-    return;
+    
+    const now = moment();
+    const currentDate = now.format("YYYY-MM-DD");
+    const currentTimeZone = lead.phoneNumber ? getTimezoneFromPhoneNumber(lead.phoneNumber) : "Asia/Kolkata"; //"America/New_York";
+
+    const claudeReplyObject = await getClaudeResponse(lead.messages, currentDate, currentTimeZone);
+    if (!claudeReplyObject) {
+      console.error("Claude did not return a reply");
+      return;
+    }
+
+    const assistantText = claudeReplyObject?.content?.[0]?.text || "[No text returned]";
+
+    // Create assistant message with messageId
+    const assistantMessage = {
+      messageId: new mongoose.Types.ObjectId().toString(),
+      role: "assistant",
+      content: assistantText,
+      approved: false
+    };
+
+    lead.messages.push(assistantMessage);
+    await lead.save();
+
+    const approvalText = `New message from User (${lead.username ? `Username: ${lead.username},` : ""} ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"`;
+    
+    const buttons = {
+      inline_keyboard: [[
+        { text: '✅ Approve', callback_data: `approve:${assistantMessage.messageId}` },
+        { text: '❌ Reject', callback_data: `reject:${assistantMessage.messageId}` },
+        { text: '✏️ Change', callback_data: `change:${assistantMessage.messageId}` }
+      ]]
+    };
+
+    await axios.post(`${TELEGRAM_API_URL}/sendMessage`, {
+      chat_id: ADMIN_CHAT_ID,
+      text: approvalText,
+      reply_markup: buttons
+    });
+
+  } catch (error) {
+    console.error("Error in handleUserMessage:", error);
+    // ... error handling
   }
-
-  if (userText.trim() === "") {
-    // Ignore empty messages
-    return;
-  }
-
-  lead.messages.push({ role: "user", content: userText });
-  await lead.save();
-  
-  const now = moment();
-  const currentDate = now.format("YYYY-MM-DD");
-  const currentTimeZone = lead.phoneNumber ? getTimezoneFromPhoneNumber(lead.phoneNumber) : "Asia/Kolkata"; //"America/New_York";
-
-  const claudeReplyObject = await getClaudeResponse(lead.messages, currentDate, currentTimeZone);
-  if (!claudeReplyObject) {
-    console.error("Claude did not return a reply");
-    return;
-  }
-
-  const assistantText = claudeReplyObject?.content?.[0]?.text || "[No text returned]";
-
-  const approvalText = `New message from User (${lead.username ? `Username: ${lead.username},` : ""} ID: ${chatId}):\n"${userText}"\n\nClaude suggests:\n"${assistantText}"`;
-  
-  // Use the updated sendTelegramMessage with options
-  await sendTelegramMessage(ADMIN_CHAT_ID, approvalText, { withButtons: true });
-
-  lead.messages.push({ role: "assistant", content: assistantText, approved: false });
-  await lead.save();
 };
 
-const approveNextPendingMessage = async () => {
+const approveMessage = async (messageId) => {
   try {
-    const lead = await Lead.findOne({
-      "messages.role": "assistant",
-      "messages.approved": false,
-    })
-      .sort({ "messages.createdAt": 1 })
-      .lean();
-
+    const lead = await Lead.findOne({ "messages.messageId": messageId });
     if (!lead) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to approve.");
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       return;
     }
 
-    const msgIndex = lead.messages.findIndex(
-      (m) => m.role === "assistant" && m.approved === false
-    );
-
-    if (msgIndex === -1) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to approve.");
+    const message = lead.messages.find(m => m.messageId === messageId);
+    if (!message) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       return;
     }
 
-    const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
-    if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
-      return;
-    }
+    message.approved = true;
+    await lead.save();
 
-    leadToUpdate.messages[msgIndex].approved = true;
-    await leadToUpdate.save();
-
-    const userChatId = leadToUpdate.telegramUserId;
-    const assistantMessage = leadToUpdate.messages[msgIndex].content;
-
-    // Send message on Telegram
-    await sendTelegramMessage(userChatId, assistantMessage);
-
+    await sendTelegramMessage(lead.telegramUserId, message.content);
     await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Message approved and sent to ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`
+      `Message approved and sent to ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
-
-    // if (leadToUpdate.phoneNumber) {
-    //   // await sendSlickTextMessage(leadToUpdate.phoneNumber, assistantMessage);
-    //   // await sendTelegramMessage( ADMIN_CHAT_ID, `Approved and sent SMS to +${leadToUpdate.phoneNumber}`)
-    // }
-    
   } catch (error) {
-    console.error("Error in approveNextPendingMessage:", error);
+    console.error("Error in approveMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error approving the message.");
   }
 };
 
-const rejectNextPendingMessage = async () => {
+const rejectMessage = async (messageId) => {
   try {
-    const lead = await Lead.findOne({
-      "messages.role": "assistant",
-      "messages.approved": false,
-    })
-      .sort({ "messages.createdAt": 1 })
-      .lean();
-
+    const lead = await Lead.findOne({ "messages.messageId": messageId });
     if (!lead) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to reject.");
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       return;
     }
 
-    const msgIndex = lead.messages.findIndex(
-      (m) => m.role === "assistant" && m.approved === false
+    lead.messages = lead.messages.filter(m => m.messageId !== messageId);
+    await lead.save();
+
+    await sendTelegramMessage(
+      ADMIN_CHAT_ID,
+      `Rejected message for user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
-
-    if (msgIndex === -1) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to reject.");
-      return;
-    }
-
-    const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
-    if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
-      return;
-    }
-
-    leadToUpdate.messages.splice(msgIndex, 1);
-    await leadToUpdate.save();
-
-    const userChatId = leadToUpdate.telegramUserId;
-    await sendTelegramMessage(ADMIN_CHAT_ID, `Rejected message for user ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`);
-
-    // await sendTelegramMessage(
-    //   userChatId,
-    //   "Your message was reviewed and rejected. Please let us know how we can help further."
-    // );
   } catch (error) {
-    console.error("Error in rejectNextPendingMessage:", error);
-    await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the next pending message.");
+    console.error("Error in rejectMessage:", error);
+    await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the message.");
   }
 };
 
 const changeNextPendingMessage = async (updatedText) => {
   try {
-    const lead = await Lead.findOne({
-      "messages.role": "assistant",
-      "messages.approved": false,
-    })
-      .sort({ "messages.createdAt": 1 })
-      .lean();
+    if (!pendingChangeMessageId) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "No message selected for change. Please click the 'Change' button first.");
+      return;
+    }
 
+    const lead = await Lead.findOne({ "messages.messageId": pendingChangeMessageId });
     if (!lead) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to change.");
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
+      pendingChangeMessageId = null;
       return;
     }
 
-    const msgIndex = lead.messages.findIndex(
-      (m) => m.role === "assistant" && m.approved === false
-    );
-
-    if (msgIndex === -1) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "No pending assistant messages to change.");
+    const message = lead.messages.find(m => m.messageId === pendingChangeMessageId);
+    if (!message) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
+      pendingChangeMessageId = null;
       return;
     }
 
-    // Create changed response record
+    // Store the change in changedResponse collection
     const changedResponse = new ChangedResponse({
       leadId: lead._id,
-      originalMessage: lead.messages[msgIndex - 1],    // User's message
-      claudeResponse: lead.messages[msgIndex],         // Claude's response
-      changedResponse: {                               // Admin's modified response
+      originalMessage: lead.messages[lead.messages.indexOf(message) - 1],
+      claudeResponse: message,
+      changedResponse: {
+        messageId: new mongoose.Types.ObjectId().toString(),
         role: "assistant",
         content: updatedText,
         approved: true
@@ -301,37 +289,21 @@ const changeNextPendingMessage = async (updatedText) => {
     });
     await changedResponse.save();
 
-    // Update the lead's message as before
-    const leadToUpdate = await Lead.findOne({ telegramUserId: lead.telegramUserId });
-    if (!leadToUpdate) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, `Lead not found for ${lead.username ? `Username: ${lead.username},` : ""} Chat ID: ${lead.telegramUserId}.`);
-      return;
-    }
+    // Update the message
+    message.content = updatedText;
+    message.approved = true;
+    await lead.save();
 
-    leadToUpdate.messages[msgIndex].content = updatedText;
-    leadToUpdate.messages[msgIndex].approved = true;
-    await leadToUpdate.save();
-
-    const userChatId = leadToUpdate.telegramUserId;
-    await sendTelegramMessage(userChatId, updatedText);
+    await sendTelegramMessage(lead.telegramUserId, updatedText);
     await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Changed and sent updated message to user ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`
+      `Changed and sent updated message to user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
 
-    // // Send via SlickText instead of Telegram if phone number exists
-    // if (leadToUpdate.phoneNumber) {
-    //   await sendSlickTextMessage(leadToUpdate.phoneNumber, updatedText);
-    //   await sendTelegramMessage(
-    //     ADMIN_CHAT_ID,
-    //     `Changed and sent SMS to +${leadToUpdate.phoneNumber}`
-    //   );
-    // }
-    // else{
-    //   console.log("Phone number not found for user", leadToUpdate.username, leadToUpdate.telegramUserId);
-    // }
+    pendingChangeMessageId = null;
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
-    await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the next pending message.");
+    await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the message.");
+    pendingChangeMessageId = null;
   }
 };
