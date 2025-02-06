@@ -1,35 +1,60 @@
 import Lead from "../../models/leadModel.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
+import axios from "axios";
 
+const getContactPhone = async (contactId) => {
+  try {
+    // Get contact details directly from contacts endpoint
+    const response = await axios.get(
+      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/contacts/${contactId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.SLICKTEXT_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    // Get phone number from contact details
+    const phoneNumber = response.data.phone_number;  // Format: "+13147507658"
+    return phoneNumber;
+  } catch (error) {
+    console.error("Error getting contact phone:", error);
+    throw error;
+  }
+};
 
 export const handleSlickTextReply = async (webhookData) => {
   try {
     const { data } = webhookData;
     
-    // Extract phone number and message from webhook data
-    const phoneNumber = data.contact_id;
-    const message = data.body;
+    // Extract contact ID from webhook data
+    const contactId = data.contact_id;
+    const message = data.last_message;
     
-    if (!phoneNumber || !message) {
+    if (!contactId || !message) {
       console.error("Missing required webhook data");
       return;
     }
 
-    // Normalize phone number
+    // Get phone number using messages endpoint
+    const phoneNumber = await getContactPhone(contactId);
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
 
     // Find or create lead
     let lead = await Lead.findOne({ phoneNumber: normalizedPhone });
     if (!lead) {
-      lead = new Lead({ 
-        phoneNumber: normalizedPhone,
-        source: 'slicktext'
-      });
+      console.warn(`No lead found for phone ${normalizedPhone}`);
+      return;
     }
 
     // Add user message to conversation history
-    lead.messages.push({ role: "user", content: message });
+    lead.messages.push({ 
+      role: "user", 
+      content: message,
+      timestamp: new Date(data.last_message_sent)
+    });
     await lead.save();
 
     // Get Claude's response

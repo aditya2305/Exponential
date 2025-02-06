@@ -1,20 +1,16 @@
 import axios from "axios";
 
-export const createOrGetContact = async (phoneNumber) => {
+export const sendInitialMessage = async (phoneNumber) => {
   try {
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
     
-    // Create a campaign with initial message
+    // Send message using the messages endpoint
     const response = await axios.post(
-      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/campaigns`,
+      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/messages`,
       {
-        name: `Initial Message to ${normalizedPhone}`,
-        body: "Thank you for your application for health insurance, are you looking for yourself or the family today? Reply STOP to end.",
-        media_url: null,
-        status: "send", // sends immediately
-        audience: {
-          all: true  // Send to all contacts
-        }
+        'body': "Thank you for your interest! How can I assist you today?",
+        'to': `+${normalizedPhone}`,  // Add the + prefix
+        'media_url': null
       },
       {
         headers: {
@@ -24,14 +20,10 @@ export const createOrGetContact = async (phoneNumber) => {
       }
     );
     
-    return response.data;
+    // Return the contact_id from the response
+    return response.data.contact.contact_id;
   } catch (error) {
-    console.error("Error in contact management:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      endpoint: error.config?.url,
-      requestData: error.config?.data
-    });
+    console.error("Error sending initial message:", error.response?.data || error);
     throw error;
   }
 };
