@@ -169,14 +169,19 @@ const approveNextPendingMessage = async () => {
     const userChatId = leadToUpdate.telegramUserId;
     const assistantMessage = leadToUpdate.messages[msgIndex].content;
 
-    // Send via SlickText instead of Telegram
-    if (leadToUpdate.phoneNumber) {
-      await sendSlickTextMessage(leadToUpdate.phoneNumber, assistantMessage);
-      await sendTelegramMessage(
-        ADMIN_CHAT_ID, 
-        `Approved and sent SMS to +${leadToUpdate.phoneNumber}`
-      );
-    }
+    // Send message on Telegram
+    await sendTelegramMessage(userChatId, assistantMessage);
+
+    await sendTelegramMessage(
+      ADMIN_CHAT_ID,
+      `Message approved and sent to ${leadToUpdate.username ? `@${leadToUpdate.username}` : `Chat ID: ${userChatId}`}`
+    );
+
+    // if (leadToUpdate.phoneNumber) {
+    //   // await sendSlickTextMessage(leadToUpdate.phoneNumber, assistantMessage);
+    //   // await sendTelegramMessage( ADMIN_CHAT_ID, `Approved and sent SMS to +${leadToUpdate.phoneNumber}`)
+    // }
+    
   } catch (error) {
     console.error("Error in approveNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error approving the message.");
@@ -260,24 +265,24 @@ const changeNextPendingMessage = async (updatedText) => {
     leadToUpdate.messages[msgIndex].approved = true;
     await leadToUpdate.save();
 
-    // const userChatId = leadToUpdate.telegramUserId;
-    // await sendTelegramMessage(userChatId, updatedText);
-    // await sendTelegramMessage(
-    //   ADMIN_CHAT_ID,
-    //   `Changed and sent updated message to user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`
-    // );
+    const userChatId = leadToUpdate.telegramUserId;
+    await sendTelegramMessage(userChatId, updatedText);
+    await sendTelegramMessage(
+      ADMIN_CHAT_ID,
+      `Changed and sent updated message to user (${leadToUpdate.username ? `Username: ${leadToUpdate.username},` : ""} Chat ID: ${userChatId}).`
+    );
 
-    // Send via SlickText instead of Telegram if phone number exists
-    if (leadToUpdate.phoneNumber) {
-      await sendSlickTextMessage(leadToUpdate.phoneNumber, updatedText);
-      await sendTelegramMessage(
-        ADMIN_CHAT_ID,
-        `Changed and sent SMS to +${leadToUpdate.phoneNumber}`
-      );
-    }
-    else{
-      console.log("Phone number not found for user", leadToUpdate.username, leadToUpdate.telegramUserId);
-    }
+    // // Send via SlickText instead of Telegram if phone number exists
+    // if (leadToUpdate.phoneNumber) {
+    //   await sendSlickTextMessage(leadToUpdate.phoneNumber, updatedText);
+    //   await sendTelegramMessage(
+    //     ADMIN_CHAT_ID,
+    //     `Changed and sent SMS to +${leadToUpdate.phoneNumber}`
+    //   );
+    // }
+    // else{
+    //   console.log("Phone number not found for user", leadToUpdate.username, leadToUpdate.telegramUserId);
+    // }
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the next pending message.");

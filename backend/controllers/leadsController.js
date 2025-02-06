@@ -20,6 +20,13 @@ export const addNewLeadSlickText = async (req, res) => {
       });
       await lead.save();
     }
+    else{
+      if(lead.slickTextContactId == null){
+        lead.slickTextContactId = contactId;
+        await lead.save();
+      }
+    }
+
 
     res.status(200).json({ 
       success: true, 
@@ -50,7 +57,8 @@ export const createLead = async (req, res) => {
       gender,
       familySize,
       age,
-      preExisting
+      preExisting,
+      slickTextContactId
     } = req.body;
 
     if (!phoneNumber) {
@@ -110,7 +118,8 @@ export const createLead = async (req, res) => {
       gender: normalizedGender,
       familySize: familySize ? Number(familySize) || null : null,
       age: age ? Number(age) || null : null,
-      preExisting: preExisting === undefined ? null : Boolean(preExisting)
+      preExisting: preExisting === undefined ? null : Boolean(preExisting),
+      slickTextContactId: slickTextContactId || null
     });
 
     await lead.save();

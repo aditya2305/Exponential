@@ -20,7 +20,7 @@ const leadSchema = new mongoose.Schema({
     default: [],
   },
 
-  slickTextContactId: { type: String, required: false },
+  slickTextContactId: { type: String, required: false, default: null },
 
   username: { type: String, default: null },
 
