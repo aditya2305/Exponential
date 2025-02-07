@@ -33,13 +33,15 @@ export const checkAllLeadsForAppointments = async () => {
         continue;
       }
 
-      // let finalTimeZone = userTZ || "America/New_York";
-      let finalTimeZone = userTZ || "Asia/Kolkata";
+      let finalTimeZone = userTZ || "America/New_York";
+      // let finalTimeZone = userTZ || "Asia/Kolkata";
       if ((userTZ.toUpperCase() === "IST")) {
         finalTimeZone = "Asia/Kolkata";
       } else if (userTZ.toUpperCase() === "CST") {
         finalTimeZone = "America/Chicago";
-      }
+      } else if (userTZ.toUpperCase() === "EST") {
+        finalTimeZone = "America/New_York";
+      } 
 
       const parsed = moment.tz(dtString, finalTimeZone);
       if (!parsed.isValid() || parsed.isBefore(moment())) {
@@ -61,7 +63,7 @@ export const checkAllLeadsForAppointments = async () => {
 
         await sendSlickTextMessage(
           lead.slickTextContactId,
-          `📅 Your appointment has been scheduled for ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`
+          `📅 Your appointment has been confirmed for ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`
         );
 
         const msgId = await sendTelegramMessage(
