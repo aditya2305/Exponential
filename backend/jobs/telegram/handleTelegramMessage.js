@@ -89,23 +89,20 @@ const handleCallbackQuery = async (callbackQuery) => {
       callback_query_id: callbackQuery.id
     });
 
+    const adminMessageId = callbackQuery.message.message_id;
+
     if (action === 'approve') {
-      await approveMessage(messageId);
+      await approveMessage(messageId, adminMessageId);
     } else if (action === 'reject') {
-      await rejectMessage(messageId);
+      await rejectMessage(messageId, adminMessageId);
     } else if (action === 'change') {
       pendingChangeMessageId = messageId;
+      global.pendingChangeAdminMessageId = adminMessageId;
       await sendTelegramMessage(
         ADMIN_CHAT_ID,
         "Please send the new message text with /change followed by your message"
       );
     }
-
-    await axios.post(`${TELEGRAM_API_URL}/editMessageReplyMarkup`, {
-      chat_id: ADMIN_CHAT_ID,
-      message_id: callbackQuery.message.message_id,
-      reply_markup: { inline_keyboard: [] }
-    });
 
   } catch (error) {
     console.error("Error handling callback query:", error);
@@ -205,7 +202,7 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
   }
 };
 
-const approveMessage = async (messageId) => {
+const approveMessage = async (messageId, adminMessageId) => {
   try {
     const lead = await Lead.findOne({ "messages.messageId": messageId });
     if (!lead) {
@@ -223,17 +220,38 @@ const approveMessage = async (messageId) => {
     await lead.save();
 
     await sendTelegramMessage(lead.telegramUserId, message.content);
-    await sendTelegramMessage(
+    
+    // Delete the admin message
+    await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+      chat_id: ADMIN_CHAT_ID,
+      message_id: adminMessageId
+    });
+
+    // Send and delete confirmation message
+    const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Message approved and sent to ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `✅ Message approved and sent to ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
+
+    // Delete confirmation message after 5 seconds
+    setTimeout(async () => {
+      try {
+        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+          chat_id: ADMIN_CHAT_ID,
+          message_id: confirmationMsg
+        });
+      } catch (error) {
+        console.error("Error deleting confirmation message:", error);
+      }
+    }, 2000);
+
   } catch (error) {
     console.error("Error in approveMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error approving the message.");
   }
 };
 
-const rejectMessage = async (messageId) => {
+const rejectMessage = async (messageId, adminMessageId) => {
   try {
     const lead = await Lead.findOne({ "messages.messageId": messageId });
     if (!lead) {
@@ -244,10 +262,30 @@ const rejectMessage = async (messageId) => {
     lead.messages = lead.messages.filter(m => m.messageId !== messageId);
     await lead.save();
 
-    await sendTelegramMessage(
+    // Delete the admin message
+    await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+      chat_id: ADMIN_CHAT_ID,
+      message_id: adminMessageId
+    });
+
+    // Send and delete confirmation message
+    const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Rejected message for user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `❌ Rejected message for user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
+
+    // Delete confirmation message after 5 seconds
+    setTimeout(async () => {
+      try {
+        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+          chat_id: ADMIN_CHAT_ID,
+          message_id: confirmationMsg
+        });
+      } catch (error) {
+        console.error("Error deleting confirmation message:", error);
+      }
+    }, 2000);
+
   } catch (error) {
     console.error("Error in rejectMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the message.");
@@ -294,16 +332,40 @@ const changeNextPendingMessage = async (updatedText) => {
     message.approved = true;
     await lead.save();
 
+    // Delete the original admin message if it exists
+    if (global.pendingChangeAdminMessageId) {
+      await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+        chat_id: ADMIN_CHAT_ID,
+        message_id: global.pendingChangeAdminMessageId
+      });
+      global.pendingChangeAdminMessageId = null;
+    }
+
     await sendTelegramMessage(lead.telegramUserId, updatedText);
-    await sendTelegramMessage(
+    
+    // Send and delete confirmation message
+    const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `Changed and sent updated message to user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `✏️ Changed and sent updated message to user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
     );
+
+    // Delete confirmation message after 5 seconds
+    setTimeout(async () => {
+      try {
+        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
+          chat_id: ADMIN_CHAT_ID,
+          message_id: confirmationMsg
+        });
+      } catch (error) {
+        console.error("Error deleting confirmation message:", error);
+      }
+    }, 2000);
 
     pendingChangeMessageId = null;
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the message.");
     pendingChangeMessageId = null;
+    global.pendingChangeAdminMessageId = null;
   }
 };
