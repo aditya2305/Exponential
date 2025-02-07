@@ -30,9 +30,24 @@ Remember: Return ONLY the JSON object, with no additional text.`;
       { role: "user", content: prompt },
     ]);
 
-    if (!extractionResult) return null;
+    // Add detailed logging of Claude's response
+    console.log("=== CLAUDE RESPONSE DEBUG ===");
+    console.log("Raw Response:", JSON.stringify(extractionResult, null, 2));
+    console.log("Content Type:", typeof extractionResult?.content);
+    console.log("Content:", extractionResult?.content);
+    if (extractionResult?.content?.[0]) {
+      console.log("First Content Item:", extractionResult.content[0]);
+      console.log("Text from First Item:", extractionResult.content[0].text);
+    }
+    console.log("=== END CLAUDE RESPONSE DEBUG ===");
+
+    if (!extractionResult) {
+      console.log("No extraction result received from Claude");
+      return null;
+    }
 
     const text = extractionResult?.content?.[0]?.text?.trim() || "";
+    console.log("Attempting to parse text:", text);
     let parsed;
     try {
       parsed = JSON.parse(text);

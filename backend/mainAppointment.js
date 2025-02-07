@@ -32,9 +32,6 @@ import { checkAllLeadsForAppointments, scheduleAppointmentReminders } from "./jo
               continue;
             }
             
-            console.log(`Checking appointments for lead ${lead._id}`);
-            console.log('Messages count:', lead.messages?.length || 0);
-            
             await checkAllLeadsForAppointments();
           } catch (error) {
             console.error(`Error processing lead ${lead._id}:`, error);
