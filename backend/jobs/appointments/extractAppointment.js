@@ -19,13 +19,14 @@ RULES:
 }
 
 3. If you detect an appointment:
-   - Set hasAppointment to true
+   - Set hasAppointment to true ONLY if the assistant has explicitly confirmed or booked the appointment
+   - Do NOT set hasAppointment true if the conversation is still ongoing without assistant's confirmation
    - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
    - Set timeZone to the mentioned timezone (like "EST" or "IST") or leave empty
    - Use year 2025 for all dates
    - If date/time is in past, use next occurrence
 
-4. If no clear appointment:
+4. If no clear appointment or pending confirmation:
    - Set hasAppointment to false
    - Leave appointmentDateTime empty
    - Leave timeZone empty
