@@ -4,7 +4,8 @@ export const checkForAppointment = async (conversation) => {
   try {
     const prompt = `
 You are an AI that extracts appointment info from a conversation.
-Answer in JSON ONLY with this format:
+You must respond with VALID JSON ONLY. No other text before or after.
+Use exactly this format:
 
 {
   "hasAppointment": true/false,
@@ -22,7 +23,8 @@ If true, parse the date/time from their message. If the resulting date/time is i
 interpret it as the next occurrence in the future. Current year is 2025, the appointmentDateTime you give should have 2025 in it as year. 
 If you can't parse it exactly, leave appointmentDateTime empty.
 Also, if a time zone is mentioned, put it in "timeZone". If none is mentioned, keep it empty.
-`;
+
+Remember: Return ONLY the JSON object, with no additional text.`;
 
     const extractionResult = await getClaudeResponse([
       { role: "user", content: prompt },
