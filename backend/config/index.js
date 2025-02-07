@@ -36,10 +36,29 @@ export const CONFIG = {
     MODEL: "claude-3-5-sonnet-20241022",
   },
 
-  // Timezone mappings
-  TIMEZONE_MAP: {
-    "91": "Asia/Kolkata",
-    "1": "America/New_York",
-    "44": "Europe/London",
+  // Default timezone if we can't determine from phone
+  DEFAULT_TIMEZONE: "America/New_York",
+
+  // Timezone mappings for known area codes
+  US_TIMEZONE_MAP: {
+    // Eastern Time
+    "212": "America/New_York", "347": "America/New_York", "516": "America/New_York",
+    // Central Time  
+    "312": "America/Chicago", "469": "America/Chicago", "214": "America/Chicago",
+    // Pacific Time
+    "213": "America/Los_Angeles", "310": "America/Los_Angeles", "408": "America/Los_Angeles",
+    // Mountain Time
+    "303": "America/Denver", "480": "America/Denver", "505": "America/Denver",
   },
+};
+
+// Timezone utilities
+export const getTimezoneFromPhoneNumber = (phoneNumber) => {
+  if (!phoneNumber) return CONFIG.DEFAULT_TIMEZONE;
+  
+  // Get first 3 digits (area code)
+  const areaCode = phoneNumber.substring(0, 3);
+  
+  // Return mapped timezone or default
+  return CONFIG.US_TIMEZONE_MAP[areaCode] || CONFIG.DEFAULT_TIMEZONE;
 }; 

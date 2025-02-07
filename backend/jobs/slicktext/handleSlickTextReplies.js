@@ -2,6 +2,8 @@ import Lead from "../../models/leadModel.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 import mongoose from "mongoose";
+import moment from "moment-timezone";
+import { getTimezoneFromPhoneNumber } from "../../config/index.js";
 
 export const handleSlickTextReply = async (webhookData) => {
   try {
@@ -34,10 +36,13 @@ export const handleSlickTextReply = async (webhookData) => {
     });
     await lead.save();
 
-    console.log("Getting Claude response for lead:", lead._id);
+    // Get timezone based on phone number
+    // const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
+    const timezone = "Asia/Kolkata";
+    const currentDate = moment().tz(timezone).format("YYYY-MM-DD");
 
-    // Get Claude's response
-    const claudeResp = await getClaudeResponse(lead.messages);
+    // Pass current date and timezone to Claude
+    const claudeResp = await getClaudeResponse(lead.messages, currentDate, timezone);
     
     if (!claudeResp?.content?.[0]?.text) {
       console.error("No response from Claude:", claudeResp);

@@ -5,20 +5,10 @@ import moment from "moment-timezone";
 import axios from "axios";
 import ChangedResponse from "../../models/changedResponseModel.js";
 import mongoose from "mongoose";
-import { CONFIG } from "../../config/index.js";
+import { CONFIG, getTimezoneFromPhoneNumber } from "../../config/index.js";
 import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 
 const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
-
-// Replace timezone mapping with config
-const getTimezoneFromPhoneNumber = (phoneNumber) => {
-  const digits = phoneNumber.replace(/\D/g, "");
-  for (let len = 1; len <= 3; len++) {
-    const code = digits.substring(0, len);
-    if (CONFIG.TIMEZONE_MAP[code]) return CONFIG.TIMEZONE_MAP[code];
-  }
-  return "Asia/Kolkata";
-};
 
 // State management (consider moving to a separate state manager)
 const pendingMessages = {

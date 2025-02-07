@@ -2,9 +2,17 @@ import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
-    telegramUserId: {
+    phoneNumber: {
       type: String,
       required: true,
+    },
+    slickTextContactId: {
+      type: String, 
+      required: true,
+    },
+    telegramUserId: {
+      type: String,
+      required: false,
     },
     username: {
       type: String,
@@ -22,10 +30,6 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean, 
       default: false 
     },
-
-    phoneNumber: { 
-      type: String
-    },      
     pickedUp: { 
       type: Boolean, 
       default: false 
@@ -38,7 +42,6 @@ const appointmentSchema = new mongoose.Schema(
       type: String, 
       default: "" 
     },
-
     createdAt: {
       type: Date,
       default: Date.now,
@@ -48,7 +51,7 @@ const appointmentSchema = new mongoose.Schema(
 );
 
 appointmentSchema.index(
-  { telegramUserId: 1, appointmentDate: 1 },
+  { phoneNumber: 1, appointmentDate: 1 },
   { unique: true }
 );
 

@@ -1,7 +1,5 @@
 import Lead from "../models/leadModel.js";
 import { sendInitialMessage, findExistingContact } from '../jobs/slicktext/contactManagement.js';
-import axios from 'axios';
-import { CONFIG } from '../config/index.js';
 import { sendSlickTextMessage } from '../jobs/slicktext/sendSlickTextMessage.js';
 
 export const addNewLeadSlickText = async (req, res) => {
@@ -30,7 +28,15 @@ export const addNewLeadSlickText = async (req, res) => {
       });
     }
 
-    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number must be at least 10 digits"
+      });
+    }
+    
+    const normalizedPhone = digitsOnly.slice(-10);
     
     // Check if lead already exists in our database
     const existingLead = await Lead.findOne({ phoneNumber: normalizedPhone });

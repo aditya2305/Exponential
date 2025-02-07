@@ -5,24 +5,20 @@ import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 import schedule from "node-schedule";
 import moment from "moment-timezone";
 import { makeCall } from "../twilio/makeCall.js";
-import dotenv from "dotenv";
+import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
+import { CONFIG } from "../../config/index.js";
 import axios from "axios";
 
-dotenv.config();
-
-const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_ID || process.env.ADMIN_CHAT_ID;
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
-const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
+const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
 
 export const checkAllLeadsForAppointments = async () => {
   try {
     const leads = await Lead.find();
     for (const lead of leads) {
-      if (lead.unsubscribed) continue;
+      if (lead.unsubscribed || !lead.slickTextContactId) continue;
 
       const existingAppt = await Appointment.findOne({
-        telegramUserId: lead.telegramUserId,
+        phoneNumber: lead.phoneNumber,
         called: false,
       });
       if (existingAppt) continue;
@@ -45,41 +41,43 @@ export const checkAllLeadsForAppointments = async () => {
       }
 
       const parsed = moment.tz(dtString, finalTimeZone);
-      if (!parsed.isValid()) {
-        console.log("Parsed date/time invalid:", dtString, "with TZ:", finalTimeZone);
-        continue;
-      }
-
-      if (parsed.isBefore(moment())) {
-        console.log("Parsed date/time is in the past. Skipping appointment creation.");
+      if (!parsed.isValid() || parsed.isBefore(moment())) {
+        console.log("Invalid date/time or in past:", dtString);
         continue;
       }
 
       try {
         const appt = new Appointment({
-          telegramUserId: lead.telegramUserId,
+          phoneNumber: lead.phoneNumber,
+          slickTextContactId: lead.slickTextContactId,
+          telegramUserId: lead.telegramUserId || null,
           username: lead.username || null,
           appointmentDate: parsed.utc().toDate(),
           timeZone: finalTimeZone,
-          called: false // indicates not yet called
+          called: false
         });
         await appt.save();
 
+        await sendSlickTextMessage(
+          lead.slickTextContactId,
+          `📅 Your appointment has been scheduled for ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`
+        );
+
         const msgId = await sendTelegramMessage(
           ADMIN_CHAT_ID,
-          `📅 *New Appointment Booked*\n${lead.username ? `Username: ${lead.username}\n` : ""}User ID: ${lead.telegramUserId}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`,
+          `📅 *New Appointment Booked*\nPhone: ${lead.phoneNumber}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`,
           { parse_mode: "Markdown" }
         );
+
         if (typeof msgId === "number") {
           await pinMessage(ADMIN_CHAT_ID, msgId);
         }
         console.log("Created new appointment:", appt);
       } catch (err) {
         if (err.code === 11000) {
-          await sendTelegramMessage(
-            lead.telegramUserId,
-            `⚠️ *Duplicate Appointment*\nYou already have an appointment at ${dtString}.`,
-            { parse_mode: "Markdown" }
+          await sendSlickTextMessage(
+            lead.slickTextContactId,
+            `⚠️ You already have an appointment scheduled for ${dtString}.`
           );
         } else {
           console.error("Error saving appointment:", err);
@@ -95,28 +93,62 @@ export const scheduleAppointmentReminders = () => {
   schedule.scheduleJob("*/1 * * * *", async () => {
     try {
       const now = new Date();
+      
+      // First, mark old uncalled appointments as called
+      const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+      await Appointment.updateMany(
+        {
+          called: false,
+          appointmentDate: { $lt: tenMinutesAgo }
+        },
+        {
+          $set: { called: true }
+        }
+      );
+
+      // Then process current appointments as usual
       const dueAppointments = await Appointment.find({
         called: false,
         appointmentDate: { $lte: now },
       });
+
       for (const appt of dueAppointments) {
-        const localTime = moment(appt.appointmentDate).tz(appt.timeZone).format("YYYY-MM-DD HH:mm z");
-        await sendTelegramMessage(
-          ADMIN_CHAT_ID,
-          `🔔 *Appointment Reminder*\nIt's time for the appointment with ${appt.username ? `username *${appt.username}*\n` : ""}user ID *${appt.telegramUserId}*\n*Date & Time:* ${localTime} (${appt.timeZone})`,
-          { parse_mode: "Markdown" }
-        );
-        await sendTelegramMessage(
-          appt.telegramUserId,
-          `🔔 *Appointment Reminder*\nHi! It's time for your scheduled appointment on ${localTime}.`,
-          { parse_mode: "Markdown" }
-        );
+        try {
+          const localTime = moment(appt.appointmentDate).tz(appt.timeZone).format("YYYY-MM-DD HH:mm z");
+          
+          await sendSlickTextMessage(
+            appt.slickTextContactId,
+            `🔔 Hi! It's time for your scheduled appointment on ${localTime}.`
+          );
 
-        await makeCall(appt);
+          const adminMsg = await sendTelegramMessage(
+            ADMIN_CHAT_ID,
+            `🔔 *Appointment Reminder*\nPhone: ${appt.phoneNumber}\n*Date & Time:* ${localTime} (${appt.timeZone})`,
+            { parse_mode: "Markdown" }
+          );
 
-        appt.called = true;
-        await appt.save();
-        console.log(`Appointment with user ID ${appt.telegramUserId} at ${localTime} marked as called=true.`);
+          if (adminMsg?.message_id) {
+            await pinMessage(ADMIN_CHAT_ID, adminMsg.message_id);
+          }
+
+          // await makeCall(appt._id, appt.phoneNumber);
+
+          // Update using findByIdAndUpdate to ensure atomic update
+          const updated = await Appointment.findByIdAndUpdate(
+            appt._id,
+            { $set: { called: true } },
+            { new: true }
+          );
+
+          if (!updated || !updated.called) {
+            throw new Error(`Failed to mark appointment ${appt._id} as called`);
+          }
+
+          console.log(`Successfully marked appointment ${appt._id} for ${appt.phoneNumber} as called=true`);
+        } catch (err) {
+          console.error(`Error processing appointment ${appt._id}:`, err);
+          // Continue with next appointment even if one fails
+        }
       }
     } catch (err) {
       console.error("Error in appointment reminders:", err);
@@ -126,7 +158,7 @@ export const scheduleAppointmentReminders = () => {
 
 const pinMessage = async (chatId, messageId) => {
   try {
-    await axios.post(`${TELEGRAM_API_URL}/pinChatMessage`, {
+    await axios.post(`${API_URL}/pinChatMessage`, {
       chat_id: chatId,
       message_id: messageId,
       disable_notification: true
