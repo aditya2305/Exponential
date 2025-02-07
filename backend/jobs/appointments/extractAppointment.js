@@ -2,61 +2,75 @@ import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 
 export const checkForAppointment = async (conversation) => {
   try {
-    const prompt = `
-You are an AI that extracts appointment info from a conversation.
-You must respond with VALID JSON ONLY. No other text before or after.
-Use exactly this format:
+    const prompt = `You are a JSON-only appointment extractor. Your task is to analyze the conversation and return ONLY a JSON object.
 
+RULES:
+1. Return ONLY valid JSON - no explanations, no questions, no other text
+2. Use EXACTLY this format:
 {
-  "hasAppointment": true/false,
-  "appointmentDateTime": "<exact date/time string or empty>",
-  "timeZone": "<time zone if mentioned (like 'EST' or 'IST') or empty>"
+  "hasAppointment": false,
+  "appointmentDateTime": "",
+  "timeZone": ""
 }
 
-Conversation:
-${conversation
-  .map((m) => `${m.role}: ${m.content}`)
-  .join("\n")}
+3. If you detect an appointment:
+   - Set hasAppointment to true
+   - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
+   - Set timeZone to the mentioned timezone (like "EST" or "IST") or leave empty
+   - Use year 2025 for all dates
+   - If date/time is in past, use next occurrence
 
-Has the user explicitly scheduled a day/time to talk? Return true if so, false otherwise.
-If true, parse the date/time from their message. If the resulting date/time is in the past relative to "now," 
-interpret it as the next occurrence in the future. Current year is 2025, the appointmentDateTime you give should have 2025 in it as year. 
-If you can't parse it exactly, leave appointmentDateTime empty.
-Also, if a time zone is mentioned, put it in "timeZone". If none is mentioned, keep it empty.
+4. If no clear appointment:
+   - Set hasAppointment to false
+   - Leave appointmentDateTime empty
+   - Leave timeZone empty
 
-Remember: Return ONLY the JSON object, with no additional text.`;
+CONVERSATION TO ANALYZE:
+${conversation.map((m) => `${m.role}: ${m.content}`).join("\n")}
+
+REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
 
     const extractionResult = await getClaudeResponse([
       { role: "user", content: prompt },
     ]);
 
-    // Add detailed logging of Claude's response
+    // Debug logging
     console.log("=== CLAUDE RESPONSE DEBUG ===");
     console.log("Raw Response:", JSON.stringify(extractionResult, null, 2));
-    console.log("Content Type:", typeof extractionResult?.content);
-    console.log("Content:", extractionResult?.content);
-    if (extractionResult?.content?.[0]) {
-      console.log("First Content Item:", extractionResult.content[0]);
-      console.log("Text from First Item:", extractionResult.content[0].text);
-    }
-    console.log("=== END CLAUDE RESPONSE DEBUG ===");
 
-    if (!extractionResult) {
-      console.log("No extraction result received from Claude");
+    if (!extractionResult?.content?.[0]?.text) {
+      console.log("Invalid Claude response structure");
       return null;
     }
 
-    const text = extractionResult?.content?.[0]?.text?.trim() || "";
-    console.log("Attempting to parse text:", text);
-    let parsed;
+    const text = extractionResult.content[0].text.trim();
+    
+    // Try to extract JSON if it's wrapped in other text
+    let jsonText = text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[0];
+    }
+
+    console.log("Attempting to parse JSON:", jsonText);
+    
     try {
-      parsed = JSON.parse(text);
+      const parsed = JSON.parse(jsonText);
+      
+      // Validate parsed object structure
+      if (typeof parsed.hasAppointment !== 'boolean' ||
+          typeof parsed.appointmentDateTime !== 'string' ||
+          typeof parsed.timeZone !== 'string') {
+        console.error("Invalid JSON structure - missing required fields");
+        return null;
+      }
+      
+      return parsed;
     } catch (err) {
       console.error("Error parsing JSON from Claude:", err);
+      console.error("Invalid JSON text:", jsonText);
       return null;
     }
-
-    return parsed;
   } catch (error) {
     console.error("Error checking for appointment:", error);
     return null;
