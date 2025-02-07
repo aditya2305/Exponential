@@ -34,9 +34,9 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
       { role: "user", content: prompt },
     ]);
 
-    // Debug logging
-    console.log("=== CLAUDE RESPONSE DEBUG ===");
-    console.log("Raw Response:", JSON.stringify(extractionResult, null, 2));
+    // // Debug logging
+    // console.log("=== CLAUDE RESPONSE DEBUG ===");
+    // console.log("Raw Response:", JSON.stringify(extractionResult, null, 2));
 
     if (!extractionResult?.content?.[0]?.text) {
       console.log("Invalid Claude response structure");
@@ -52,7 +52,7 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
       jsonText = jsonMatch[0];
     }
 
-    console.log("Attempting to parse JSON:", jsonText);
+    // console.log("Attempting to parse JSON:", jsonText);
     
     try {
       const parsed = JSON.parse(jsonText);
