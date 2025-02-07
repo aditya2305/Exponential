@@ -3,38 +3,44 @@ import { sendTelegramMessage } from "./sendTelegramMessage.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import moment from "moment-timezone";
 import axios from "axios";
-import dotenv from "dotenv";
 import ChangedResponse from "../../models/changedResponseModel.js";
 import mongoose from "mongoose";
 // import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
-dotenv.config();
+import { CONFIG } from "../../config/index.js";
 
-const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_ID;
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
 
-const countryCodeToTimezone = {
-  "91": "Asia/Kolkata",
-  "1": "America/New_York",
-  "44": "Europe/London"
-};
-
+// Replace timezone mapping with config
 const getTimezoneFromPhoneNumber = (phoneNumber) => {
   const digits = phoneNumber.replace(/\D/g, "");
   for (let len = 1; len <= 3; len++) {
     const code = digits.substring(0, len);
-    if (countryCodeToTimezone[code]) return countryCodeToTimezone[code];
+    if (CONFIG.TIMEZONE_MAP[code]) return CONFIG.TIMEZONE_MAP[code];
   }
   return "Asia/Kolkata";
 };
 
-let pendingChangeMessageId = null;
-let pendingInstructionMessageId = null;
-let pendingChangeAdminMessageId = null;
+// State management (consider moving to a separate state manager)
+const pendingMessages = {
+  changeMessageId: null,
+  instructionMessageId: null,
+  changeAdminMessageId: null
+};
+
+// Update deleteMessage helper to use config
+const deleteMessage = async (messageId) => {
+  try {
+    await axios.post(`${CONFIG.TELEGRAM.API_URL}/deleteMessage`, {
+      chat_id: CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+      message_id: messageId
+    });
+  } catch (error) {
+    console.error("Error deleting message:", error);
+  }
+};
 
 export const handleTelegramUpdate = async (update) => {
   try {
-    // Handle callback queries (button clicks)
     if (update.callback_query) {
       await handleCallbackQuery(update.callback_query);
       return;
@@ -48,36 +54,21 @@ export const handleTelegramUpdate = async (update) => {
     const userTgUsername = update.message.from?.username || null;
     const replyToMessage = update.message.reply_to_message;
 
-    if (String(chatId) === String(ADMIN_CHAT_ID)) {
+    if (String(chatId) === String(CONFIG.TELEGRAM.ADMIN_CHAT_ID)) {
       if (fromBot) return;
       
-      // Check if this is a reply to a message and we have a pending change
-      if (replyToMessage && pendingChangeMessageId) {
+      if (replyToMessage && pendingMessages.changeMessageId) {
         await changeNextPendingMessage(text, replyToMessage.message_id, update.message.message_id);
       } else {
-        // Send warning message and delete both messages
         const warningMsg = await sendTelegramMessage(
-          ADMIN_CHAT_ID,
+          CONFIG.TELEGRAM.ADMIN_CHAT_ID,
           "Direct messages are not accepted in this group."
         );
 
-        // Delete both the user's message and the warning message
-        setTimeout(async () => {
-          try {
-            // Delete user's message
-            await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-              chat_id: ADMIN_CHAT_ID,
-              message_id: update.message.message_id
-            });
-
-            // Delete warning message
-            await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-              chat_id: ADMIN_CHAT_ID,
-              message_id: warningMsg
-            });
-          } catch (error) {
-            console.error("Error deleting messages:", error);
-          }
+        // Use the deleteMessage helper
+        setTimeout(() => {
+          deleteMessage(update.message.message_id);
+          deleteMessage(warningMsg);
         }, 2000);
       }
       return;
@@ -106,7 +97,7 @@ const handleCallbackQuery = async (callbackQuery) => {
       return;
     }
 
-    await axios.post(`${TELEGRAM_API_URL}/answerCallbackQuery`, {
+    await axios.post(`${API_URL}/answerCallbackQuery`, {
       callback_query_id: callbackQuery.id
     });
 
@@ -117,21 +108,21 @@ const handleCallbackQuery = async (callbackQuery) => {
     } else if (action === 'reject') {
       await rejectMessage(messageId, adminMessageId);
     } else if (action === 'change') {
-      pendingChangeMessageId = messageId;
-      pendingChangeAdminMessageId = adminMessageId;
+      pendingMessages.changeMessageId = messageId;
+      pendingMessages.changeAdminMessageId = adminMessageId;
       const instructionMsg = await sendTelegramMessage(
         ADMIN_CHAT_ID,
         "Please reply to the original message with your updated text.",
         { reply_to_message_id: adminMessageId }
       );
       
-      pendingInstructionMessageId = instructionMsg;
+      pendingMessages.instructionMessageId = instructionMsg;
     }
 
   } catch (error) {
     console.error("Error handling callback query:", error);
-    pendingChangeMessageId = null;
-    pendingInstructionMessageId = null;
+    pendingMessages.changeMessageId = null;
+    pendingMessages.instructionMessageId = null;
   }
 };
 
@@ -215,7 +206,7 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
       ]]
     };
 
-    await axios.post(`${TELEGRAM_API_URL}/sendMessage`, {
+    await axios.post(`${API_URL}/sendMessage`, {
       chat_id: ADMIN_CHAT_ID,
       text: approvalText,
       reply_markup: buttons
@@ -247,10 +238,7 @@ const approveMessage = async (messageId, adminMessageId) => {
     await sendTelegramMessage(lead.telegramUserId, message.content);
     
     // Delete the admin message
-    await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-      chat_id: ADMIN_CHAT_ID,
-      message_id: adminMessageId
-    });
+    await deleteMessage(adminMessageId);
 
     // Send and delete confirmation message
     const confirmationMsg = await sendTelegramMessage(
@@ -260,14 +248,7 @@ const approveMessage = async (messageId, adminMessageId) => {
 
     // Delete confirmation message after 2 seconds
     setTimeout(async () => {
-      try {
-        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          message_id: confirmationMsg
-        });
-      } catch (error) {
-        console.error("Error deleting confirmation message:", error);
-      }
+      await deleteMessage(confirmationMsg);
     }, 2000);
 
   } catch (error) {
@@ -288,10 +269,7 @@ const rejectMessage = async (messageId, adminMessageId) => {
     await lead.save();
 
     // Delete the admin message
-    await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-      chat_id: ADMIN_CHAT_ID,
-      message_id: adminMessageId
-    });
+    await deleteMessage(adminMessageId);
 
     // Send and delete confirmation message
     const confirmationMsg = await sendTelegramMessage(
@@ -301,14 +279,7 @@ const rejectMessage = async (messageId, adminMessageId) => {
 
     // Delete confirmation message after 2 seconds
     setTimeout(async () => {
-      try {
-        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          message_id: confirmationMsg
-        });
-      } catch (error) {
-        console.error("Error deleting confirmation message:", error);
-      }
+      await deleteMessage(confirmationMsg);
     }, 2000);
 
   } catch (error) {
@@ -319,27 +290,35 @@ const rejectMessage = async (messageId, adminMessageId) => {
 
 const changeNextPendingMessage = async (updatedText, replyToMessageId, adminReplyMessageId) => {
   try {
-    if (!pendingChangeMessageId) {
+    if (!pendingMessages.changeMessageId) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "No message selected for change. Please click the 'Change' button first.");
       return;
     }
 
-    if (pendingChangeAdminMessageId !== replyToMessageId) {
-      await sendTelegramMessage(ADMIN_CHAT_ID, "Please reply to the original message that needs to be changed.");
+    if (pendingMessages.changeAdminMessageId !== replyToMessageId) {
+      // Delete both the wrong reply and the warning message
+      const warningMsg = await sendTelegramMessage(ADMIN_CHAT_ID, "Please reply to the original message that needs to be changed.");
+      
+      // Delete both messages after 2 seconds
+      setTimeout(async () => {
+        await deleteMessage(adminReplyMessageId);
+        await deleteMessage(warningMsg);
+      }, 2000);
+      
       return;
     }
 
-    const lead = await Lead.findOne({ "messages.messageId": pendingChangeMessageId });
+    const lead = await Lead.findOne({ "messages.messageId": pendingMessages.changeMessageId });
     if (!lead) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
-      pendingChangeMessageId = null;
+      pendingMessages.changeMessageId = null;
       return;
     }
 
-    const message = lead.messages.find(m => m.messageId === pendingChangeMessageId);
+    const message = lead.messages.find(m => m.messageId === pendingMessages.changeMessageId);
     if (!message) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
-      pendingChangeMessageId = null;
+      pendingMessages.changeMessageId = null;
       return;
     }
 
@@ -366,24 +345,18 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     await sendTelegramMessage(lead.telegramUserId, updatedText);
 
     // Delete the original admin message if it exists
-    if (pendingChangeAdminMessageId) {
+    if (pendingMessages.changeAdminMessageId) {
       try {
-        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          message_id: pendingChangeAdminMessageId
-        });
+        await deleteMessage(pendingMessages.changeAdminMessageId);
       } catch (error) {
         console.error("Error deleting original admin message:", error);
       }
-      pendingChangeAdminMessageId = null;
+      pendingMessages.changeAdminMessageId = null;
     }
 
     // Delete admin's reply message
     try {
-      await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-        chat_id: ADMIN_CHAT_ID,
-        message_id: adminReplyMessageId
-      });
+      await deleteMessage(adminReplyMessageId);
     } catch (error) {
       console.error("Error deleting admin's reply message:", error);
     }
@@ -396,35 +369,25 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
 
     // Delete confirmation message after 2 seconds
     setTimeout(async () => {
-      try {
-        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          message_id: confirmationMsg
-        });
-      } catch (error) {
-        console.error("Error deleting confirmation message:", error);
-      }
+      await deleteMessage(confirmationMsg);
     }, 2000);
 
     // Delete the instruction message if it exists
-    if (pendingInstructionMessageId) {
+    if (pendingMessages.instructionMessageId) {
       try {
-        await axios.post(`${TELEGRAM_API_URL}/deleteMessage`, {
-          chat_id: ADMIN_CHAT_ID,
-          message_id: pendingInstructionMessageId
-        });
+        await deleteMessage(pendingMessages.instructionMessageId);
       } catch (error) {
         console.error("Error deleting instruction message:", error);
       }
-      pendingInstructionMessageId = null;
+      pendingMessages.instructionMessageId = null;
     }
 
-    pendingChangeMessageId = null;
+    pendingMessages.changeMessageId = null;
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the message.");
-    pendingChangeMessageId = null;
-    pendingChangeAdminMessageId = null;
-    pendingInstructionMessageId = null;
+    pendingMessages.changeMessageId = null;
+    pendingMessages.changeAdminMessageId = null;
+    pendingMessages.instructionMessageId = null;
   }
 };

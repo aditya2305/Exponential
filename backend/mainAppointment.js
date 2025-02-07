@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-dotenv.config();
+import config from "./config/config.js";
 
 import { checkAllLeadsForAppointments, scheduleAppointmentReminders } from "./jobs/appointments/scheduleAppointments.js";
 
 (async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
+    await mongoose.connect(config.mongodb.uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

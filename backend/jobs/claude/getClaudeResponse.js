@@ -1,10 +1,8 @@
-
 import Anthropic from '@anthropic-ai/sdk';
-import dotenv from "dotenv";
-dotenv.config();
+import { CONFIG } from '../../config/index.js';
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+  apiKey: CONFIG.ANTHROPIC.API_KEY
 });
 
 export const getClaudeResponse = async (messages, currentDate, currentTimeZone) => {

@@ -1,7 +1,7 @@
 import express from "express"
 import cors from "cors"
-import dotenv from "dotenv"
 import mongoose from "mongoose"
+import { CONFIG } from "./config/index.js"
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
@@ -10,13 +10,11 @@ import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwili
 import { makeCall } from "./jobs/twilio/makeCall.js";
 import crypto from "crypto";
 
-dotenv.config();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(CONFIG.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 .then(() => {
     console.log('Database connection successful!');
 })
@@ -114,10 +112,8 @@ app.post("/webhook/slicktext", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, async () => {
-  console.log(`Server listening on port ${PORT}`);
+app.listen(CONFIG.PORT, async () => {
+  console.log(`Server listening on port ${CONFIG.PORT}`);
 
   await setWebhook();
   console.log("Webhook set.");
