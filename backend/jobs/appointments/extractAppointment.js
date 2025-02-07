@@ -1,4 +1,9 @@
-import { getClaudeResponse } from "../claude/getClaudeResponse.js";
+import Anthropic from '@anthropic-ai/sdk';
+import { CONFIG } from '../../config/index.js';
+
+const client = new Anthropic({
+  apiKey: CONFIG.ANTHROPIC.API_KEY
+});
 
 export const checkForAppointment = async (conversation) => {
   try {
@@ -30,20 +35,29 @@ ${conversation.map((m) => `${m.role}: ${m.content}`).join("\n")}
 
 REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
 
-    const extractionResult = await getClaudeResponse([
-      { role: "user", content: prompt },
-    ]);
+    const response = await client.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1024,
+      system: "You are a JSON-only response bot. Never include explanatory text.",
+      messages: [
+        { role: "user", content: prompt }
+      ],
+    });
 
     // // Debug logging
     // console.log("=== CLAUDE RESPONSE DEBUG ===");
-    // console.log("Raw Response:", JSON.stringify(extractionResult, null, 2));
+    // console.log("Raw Response:", JSON.stringify(response, null, 2));
 
-    if (!extractionResult?.content?.[0]?.text) {
+    if (!response?.content?.[0]?.text) {
       console.log("Invalid Claude response structure");
-      return null;
+      return {
+        hasAppointment: false,
+        appointmentDateTime: "",
+        timeZone: ""
+      };
     }
 
-    const text = extractionResult.content[0].text.trim();
+    const text = response.content[0].text.trim();
     
     // Try to extract JSON if it's wrapped in other text
     let jsonText = text;
@@ -52,24 +66,32 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
       jsonText = jsonMatch[0];
     }
 
-    // console.log("Attempting to parse JSON:", jsonText);
-    
     try {
       const parsed = JSON.parse(jsonText);
+
+      console.log("Parsed JSON:", parsed);
       
       // Validate parsed object structure
       if (typeof parsed.hasAppointment !== 'boolean' ||
           typeof parsed.appointmentDateTime !== 'string' ||
           typeof parsed.timeZone !== 'string') {
         console.error("Invalid JSON structure - missing required fields");
-        return null;
+        return {
+          hasAppointment: false,
+          appointmentDateTime: "",
+          timeZone: ""
+        };
       }
       
       return parsed;
     } catch (err) {
       console.error("Error parsing JSON from Claude:", err);
       console.error("Invalid JSON text:", jsonText);
-      return null;
+      return {
+        hasAppointment: false,
+        appointmentDateTime: "",
+        timeZone: ""
+      };
     }
   } catch (error) {
     console.error("Error checking for appointment:", error);

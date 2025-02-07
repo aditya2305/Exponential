@@ -4,7 +4,7 @@ import { checkForAppointment } from "./extractAppointment.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 import schedule from "node-schedule";
 import moment from "moment-timezone";
-import { makeCall } from "../twilio/makeCall.js";
+// import { makeCall } from "../twilio/makeCall.js";
 import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 import { CONFIG } from "../../config/index.js";
 import axios from "axios";
@@ -33,7 +33,8 @@ export const checkAllLeadsForAppointments = async () => {
         continue;
       }
 
-      let finalTimeZone = userTZ || "America/New_York";
+      // let finalTimeZone = userTZ || "America/New_York";
+      let finalTimeZone = userTZ || "Asia/Kolkata";
       if ((userTZ.toUpperCase() === "IST")) {
         finalTimeZone = "Asia/Kolkata";
       } else if (userTZ.toUpperCase() === "CST") {
