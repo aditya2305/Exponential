@@ -37,8 +37,8 @@ export const handleSlickTextReply = async (webhookData) => {
     await lead.save();
 
     // Get timezone based on phone number
-    // const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
-    const timezone = "Asia/Kolkata";
+    const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
+    // const timezone = "Asia/Kolkata";
     const currentDate = moment().tz(timezone).format("YYYY-MM-DD");
 
     // Pass current date and timezone to Claude

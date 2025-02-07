@@ -33,8 +33,8 @@ export const checkAllLeadsForAppointments = async () => {
         continue;
       }
 
-      // let finalTimeZone = userTZ || "America/New_York";
-      let finalTimeZone = userTZ || "Asia/Kolkata";
+      let finalTimeZone = userTZ || "America/New_York";
+      // let finalTimeZone = userTZ || "Asia/Kolkata";
       if ((userTZ.toUpperCase() === "IST")) {
         finalTimeZone = "Asia/Kolkata";
       } else if (userTZ.toUpperCase() === "CST") {
@@ -98,11 +98,11 @@ export const scheduleAppointmentReminders = () => {
       const now = new Date();
       
       // First, mark old uncalled appointments as called
-      const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       await Appointment.updateMany(
         {
           called: false,
-          appointmentDate: { $lt: tenMinutesAgo }
+          appointmentDate: { $lt: fiveMinutesAgo }
         },
         {
           $set: { called: true }
