@@ -3,7 +3,7 @@ import messageSchema from "./messageModel.js";
 
 const leadSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: false },
-  telegramUserId: { type: String, required: false },
+  telegramUserId: { type: String, required: false, default: null },
   messages: {
     type: [messageSchema],
     default: [],

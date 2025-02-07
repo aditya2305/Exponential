@@ -97,11 +97,32 @@ const handleCallbackQuery = async (callbackQuery) => {
       return;
     }
 
+    // Check if message has already been acted upon
+    const message = messageToHandle.messages.find(m => m.messageId === messageId);
+    if (!message) {
+      await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
+      return;
+    }
+
+    // Add check for already processed messages
+    if (message.processed) {
+      const processedMsg = await sendTelegramMessage(ADMIN_CHAT_ID, "This message has already been processed.");
+      // Delete the notification after 2 seconds
+      setTimeout(() => {
+        deleteMessage(processedMsg);
+      }, 2000);
+      return;
+    }
+
     await axios.post(`${API_URL}/answerCallbackQuery`, {
       callback_query_id: callbackQuery.id
     });
 
     const adminMessageId = callbackQuery.message.message_id;
+
+    // Mark message as processed before taking action
+    message.processed = true;
+    await messageToHandle.save();
 
     if (action === 'approve') {
       await approveMessage(messageId, adminMessageId);

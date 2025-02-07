@@ -5,7 +5,7 @@ import { CONFIG } from "./config/index.js"
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
-import { addNewLeadSlickText, createLead } from "./controllers/leadsController.js";
+import { addNewLeadSlickText } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
 
@@ -26,7 +26,6 @@ app.get("/", (req, res) => {
 });
 
 app.post("/add-lead-slicktext", addNewLeadSlickText);
-app.post("/create-lead", createLead);
 
 app.get("/twilio/voice", handleTwilioVoice); 
 app.post("/twilio/status", handleTwilioStatus);
@@ -64,12 +63,9 @@ app.post("/webhook/telegram", async (req, res) => {
 
 app.post("/webhook/slicktext", async (req, res) => {
   try {
-
-    console.log('SlickText webhook received:', req.body);
     
     // Only process first attempt of webhooks
     if (req.body.attempts !== 1) {
-      console.log(`Skipping retry attempt ${req.body.attempts} for webhook ${req.body.id}`);
       return res.sendStatus(200);
     }
 

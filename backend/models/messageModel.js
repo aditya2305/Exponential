@@ -19,6 +19,10 @@ const messageSchema = new mongoose.Schema({
   approved: {
     type: Boolean,
     default: false
+  },
+  processed: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

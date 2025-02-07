@@ -1,6 +1,5 @@
 import axios from "axios";
 import { CONFIG } from "../../config/index.js";
-// import { createOrGetContact } from "./contactManagement.js";
 
 export const sendSlickTextMessage = async (contactId, message) => {
   try {

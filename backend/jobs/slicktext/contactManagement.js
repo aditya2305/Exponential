@@ -1,7 +1,8 @@
 import axios from "axios";
 import { CONFIG } from "../../config/index.js";
+import { sendSlickTextMessage } from "./sendSlickTextMessage.js";
 
-export const sendInitialMessage = async (phoneNumber) => {
+export const sendInitialMessage = async (phoneNumber, contactData = {}) => {
   try {
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
     
@@ -10,6 +11,11 @@ export const sendInitialMessage = async (phoneNumber) => {
       `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/contacts`,
       {
         mobile_number: `+${normalizedPhone}`,
+        first_name: contactData.fullName ? contactData.fullName.split(' ')[0] : null,
+        last_name: contactData.fullName ? contactData.fullName.split(' ').slice(1).join(' ') : null,
+        email: contactData.email,
+        address: contactData.address,
+        zip: contactData.zipcode,
         opt_in_status: "subscribed"
       },
       {
@@ -22,20 +28,10 @@ export const sendInitialMessage = async (phoneNumber) => {
 
     const contactId = contactResponse.data.contact_id;
     
-    // Send welcome message
-    await axios.post(
-      `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/messages`,
-      {
-        contact_id: contactId,
-        body: "Thank you for your interest! How can I assist you today?",
-        media_url: null
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CONFIG.SLICKTEXT.API_KEY}`
-        }
-      }
+    // Use sendSlickTextMessage instead of direct axios call
+    await sendSlickTextMessage(
+      contactId,
+      "Thank you for your interest! How can I assist you today?"
     );
     
     return contactId;
@@ -43,4 +39,20 @@ export const sendInitialMessage = async (phoneNumber) => {
     console.error("Error in sendInitialMessage:", error.response?.data || error);
     throw error;
   }
+};
+
+export const findExistingContact = async (phoneNumber) => {
+  const normalizedPhone = phoneNumber.replace(/\D/g, '');
+  const contactsResponse = await axios.get(
+    `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/contacts/`,
+    {
+      headers: {
+        'Authorization': `Bearer ${CONFIG.SLICKTEXT.API_KEY}`
+      }
+    }
+  );
+
+  return contactsResponse.data.data.find(
+    contact => contact.mobile_number === `+1${normalizedPhone}`
+  );
 };
