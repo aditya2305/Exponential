@@ -1,79 +1,77 @@
 import Lead from "../../models/leadModel.js";
 import { getClaudeResponse } from "../claude/getClaudeResponse.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
-import axios from "axios";
-
-const getContactPhone = async (contactId) => {
-  try {
-    // Get contact details directly from contacts endpoint
-    const response = await axios.get(
-      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/contacts/${contactId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.SLICKTEXT_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    // Get phone number from contact details
-    const phoneNumber = response.data.phone_number;  // Format: "+13147507658"
-    return phoneNumber;
-  } catch (error) {
-    console.error("Error getting contact phone:", error);
-    throw error;
-  }
-};
+import mongoose from "mongoose";
 
 export const handleSlickTextReply = async (webhookData) => {
   try {
     const { data } = webhookData;
-    
-    // Extract contact ID from webhook data
-    const contactId = data.contact_id;
+    // The contact_id is in _contact_id in the webhook data
+    const contactId = data._contact_id;
+    // The message is in last_message
     const message = data.last_message;
     
+    console.log("Processing message:", { contactId, message });
+    
     if (!contactId || !message) {
-      console.error("Missing required webhook data");
+      console.error("Missing required webhook data:", { contactId, message });
       return;
     }
 
-    // Get phone number using messages endpoint
-    const phoneNumber = await getContactPhone(contactId);
-    const normalizedPhone = phoneNumber.replace(/\D/g, '');
-
-    // Find or create lead
-    let lead = await Lead.findOne({ phoneNumber: normalizedPhone });
+    // Find lead by SlickText contact ID
+    let lead = await Lead.findOne({ slickTextContactId: contactId.toString() });
     if (!lead) {
-      console.warn(`No lead found for phone ${normalizedPhone}`);
+      console.warn(`No lead found for contact ID ${contactId}`);
       return;
     }
 
     // Add user message to conversation history
     lead.messages.push({ 
+      messageId: new mongoose.Types.ObjectId().toString(),
       role: "user", 
       content: message,
-      timestamp: new Date(data.last_message_sent)
+      timestamp: new Date()
     });
     await lead.save();
+
+    console.log("Getting Claude response for lead:", lead._id);
 
     // Get Claude's response
     const claudeResp = await getClaudeResponse(lead.messages);
     
     if (!claudeResp?.content?.[0]?.text) {
-      console.error("No response from Claude");
+      console.error("No response from Claude:", claudeResp);
       return;
     }
 
     const assistantText = claudeResp.content[0].text;
 
-    // Send to admin Telegram for approval
-    const approvalText = `New SMS from +${normalizedPhone}:\n"${message}"\n\nClaude suggests:\n"${assistantText}"\n\nReply with "/approve", "/reject", or "/change <your response>" to finalize.`;
-    await sendTelegramMessage(process.env.ADMIN_TELEGRAM_ID, approvalText);
+    // Create assistant message with messageId
+    const assistantMessage = {
+      messageId: new mongoose.Types.ObjectId().toString(),
+      role: "assistant",
+      content: assistantText,
+      approved: false
+    };
 
-    // Save Claude's response as pending
-    lead.messages.push({ role: "assistant", content: assistantText, approved: false });
+    lead.messages.push(assistantMessage);
     await lead.save();
+
+    // Send to admin Telegram for approval
+    const approvalText = `New SMS from ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${contactId}`}:\n"${message}"\n\nClaude suggests:\n"${assistantText}"`;
+    
+    const buttons = {
+      inline_keyboard: [[
+        { text: '✅ Approve', callback_data: `approve:${assistantMessage.messageId}` },
+        { text: '❌ Reject', callback_data: `reject:${assistantMessage.messageId}` },
+        { text: '✏️ Change', callback_data: `change:${assistantMessage.messageId}` }
+      ]]
+    };
+
+    console.log("Sending approval request to admin");
+    
+    // Send approval request to admin via Telegram
+    await sendTelegramMessage(process.env.ADMIN_TELEGRAM_ID, approvalText, { reply_markup: buttons });
 
   } catch (error) {
     console.error("Error handling SlickText reply:", error);

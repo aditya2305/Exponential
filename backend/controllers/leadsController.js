@@ -1,11 +1,30 @@
 import Lead from "../models/leadModel.js";
-// import { createOrGetContact } from '../jobs/slicktext/contactManagement.js';
-// import { sendSlickTextMessage } from '../jobs/slicktext/sendSlickTextMessage.js';
 import { sendInitialMessage } from '../jobs/slicktext/contactManagement.js';
 
 export const addNewLeadSlickText = async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { 
+      phoneNumber,
+      source,
+      buyer,
+      fullName,
+      email,
+      zipcode,
+      income,
+      address,
+      gender,
+      familySize,
+      age,
+      preExisting
+    } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required"
+      });
+    }
+
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
     
     // Send initial message and get contact_id
@@ -14,23 +33,48 @@ export const addNewLeadSlickText = async (req, res) => {
     // Create lead in our database
     let lead = await Lead.findOne({ phoneNumber: normalizedPhone });
     if (!lead) {
+      // Validate gender if provided
+      let normalizedGender = null;
+      if (gender) {
+        const lowerGender = gender.toLowerCase();
+        if (!['male', 'female', 'other'].includes(lowerGender)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid gender value. Must be 'male', 'female', or 'other'"
+          });
+        }
+        normalizedGender = lowerGender;
+      }
+
       lead = new Lead({ 
         phoneNumber: normalizedPhone,
-        slickTextContactId: contactId
+        slickTextContactId: contactId,
+        source: source || null,
+        buyer: buyer || null,
+        fullName: fullName || null,
+        email: email || null,
+        zipcode: zipcode || null,
+        income: income ? Number(income) || null : null,
+        address: address || null,
+        gender: normalizedGender,
+        familySize: familySize ? Number(familySize) || null : null,
+        age: age ? Number(age) || null : null,
+        preExisting: preExisting === undefined ? null : Boolean(preExisting)
       });
       await lead.save();
     }
-    else{
-      if(lead.slickTextContactId == null){
+    else {
+      if (lead.slickTextContactId != contactId) {
         lead.slickTextContactId = contactId;
+        console.log("Updated slickTextContactId for lead:", lead);
         await lead.save();
       }
     }
 
-
     res.status(200).json({ 
       success: true, 
-      message: "Lead created and initial message sent" 
+      message: "Lead created and initial message sent",
+      data: lead
     });
 
   } catch (error) {
@@ -48,7 +92,6 @@ export const createLead = async (req, res) => {
       phoneNumber,
       source,
       buyer,
-      date,
       fullName,
       email,
       zipcode,
@@ -80,18 +123,6 @@ export const createLead = async (req, res) => {
       });
     }
 
-    // Validate date if provided
-    let parsedDate = null;
-    if (date) {
-      parsedDate = new Date(date);
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid date format"
-        });
-      }
-    }
-
     // Validate gender if provided
     let normalizedGender = null;
     if (gender) {
@@ -109,7 +140,7 @@ export const createLead = async (req, res) => {
       phoneNumber: normalizedPhone,
       source: source || null,
       buyer: buyer || null,
-      date: parsedDate,
+      date: new Date(), // Auto-generate current date
       fullName: fullName || null,
       email: email || null,
       zipcode: zipcode || null,

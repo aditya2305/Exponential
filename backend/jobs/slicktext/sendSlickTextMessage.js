@@ -1,12 +1,11 @@
 import axios from "axios";
-import dotenv from "dotenv";
+import { CONFIG } from "../../config/index.js";
 // import { createOrGetContact } from "./contactManagement.js";
-dotenv.config();
 
 export const sendSlickTextMessage = async (contactId, message) => {
   try {
     const response = await axios.post(
-      `https://dev.slicktext.com/v1/brands/${process.env.BRAND_ID}/messages`,
+      `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/messages`,
       {
         contact_id: contactId,
         body: message,
@@ -15,7 +14,7 @@ export const sendSlickTextMessage = async (contactId, message) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.SLICKTEXT_API_KEY}`
+          'Authorization': `Bearer ${CONFIG.SLICKTEXT.API_KEY}`
         }
       }
     );

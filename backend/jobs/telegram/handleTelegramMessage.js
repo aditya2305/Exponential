@@ -5,8 +5,8 @@ import moment from "moment-timezone";
 import axios from "axios";
 import ChangedResponse from "../../models/changedResponseModel.js";
 import mongoose from "mongoose";
-// import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 import { CONFIG } from "../../config/index.js";
+import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 
 const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
 
@@ -235,7 +235,10 @@ const approveMessage = async (messageId, adminMessageId) => {
     message.approved = true;
     await lead.save();
 
-    await sendTelegramMessage(lead.telegramUserId, message.content);
+    // Send via SlickText instead of Telegram
+    await sendSlickTextMessage(lead.slickTextContactId, message.content);
+    // Comment out Telegram send
+    // await sendTelegramMessage(lead.telegramUserId, message.content);
     
     // Delete the admin message
     await deleteMessage(adminMessageId);
@@ -243,10 +246,9 @@ const approveMessage = async (messageId, adminMessageId) => {
     // Send and delete confirmation message
     const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `✅ Message approved and sent to ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `✅ Message approved and sent to ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${lead.slickTextContactId}`}`
     );
 
-    // Delete confirmation message after 2 seconds
     setTimeout(async () => {
       await deleteMessage(confirmationMsg);
     }, 2000);
@@ -271,10 +273,20 @@ const rejectMessage = async (messageId, adminMessageId) => {
     // Delete the admin message
     await deleteMessage(adminMessageId);
 
-    // Send and delete confirmation message
+    // // Send rejection notification via SlickText
+    // if (lead.slickTextContactId) {
+    //   await sendSlickTextMessage(
+    //     lead.slickTextContactId,
+    //     "I apologize, but I need to revise my previous response. I'll get back to you shortly with a better answer."
+    //   );
+    // }
+    // Comment out Telegram notification
+    // await sendTelegramMessage(lead.telegramUserId, "I apologize, but I need to revise my previous response. I'll get back to you shortly with a better answer.");
+
+    // Send and delete confirmation message for admin
     const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `❌ Rejected message for user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `❌ Rejected message for user ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${lead.slickTextContactId}`}`
     );
 
     // Delete confirmation message after 2 seconds
@@ -296,10 +308,8 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     }
 
     if (pendingMessages.changeAdminMessageId !== replyToMessageId) {
-      // Delete both the wrong reply and the warning message
       const warningMsg = await sendTelegramMessage(ADMIN_CHAT_ID, "Please reply to the original message that needs to be changed.");
       
-      // Delete both messages after 2 seconds
       setTimeout(async () => {
         await deleteMessage(adminReplyMessageId);
         await deleteMessage(warningMsg);
@@ -341,8 +351,12 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     message.approved = true;
     await lead.save();
 
-    // Send the message to the user first
-    await sendTelegramMessage(lead.telegramUserId, updatedText);
+    // Send the message to the user via SlickText
+    if (lead.slickTextContactId) {
+      await sendSlickTextMessage(lead.slickTextContactId, updatedText);
+    }
+    // Comment out Telegram send
+    // await sendTelegramMessage(lead.telegramUserId, updatedText);
 
     // Delete the original admin message if it exists
     if (pendingMessages.changeAdminMessageId) {
@@ -364,7 +378,7 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     // Send and delete confirmation message
     const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
-      `✏️ Changed and sent updated message to user ${lead.username ? `@${lead.username}` : `Chat ID: ${lead.telegramUserId}`}`
+      `✏️ Changed and sent updated message to ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${lead.slickTextContactId}`}`
     );
 
     // Delete confirmation message after 2 seconds

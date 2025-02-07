@@ -26,7 +26,7 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
       messages: [{ role: "user", content: fullPrompt }],
     });
 
-    console.log("CLAUDE RESPONSE - ", msg)
+    console.log("GENERATED CLAUDE RESPONSE")
 
     return msg;
   } catch (error) {
