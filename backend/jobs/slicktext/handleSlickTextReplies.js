@@ -37,8 +37,8 @@ export const handleSlickTextReply = async (webhookData) => {
     await lead.save();
 
     // Get timezone based on phone number
-    // const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
-    const timezone = "Asia/Kolkata";
+    const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
+    // const timezone = "Asia/Kolkata";
     const currentDate = moment().tz(timezone).format("YYYY-MM-DD");
 
     // Pass current date and timezone to Claude
@@ -62,9 +62,13 @@ export const handleSlickTextReply = async (webhookData) => {
     lead.messages.push(assistantMessage);
     await lead.save();
 
-    // Send to admin Telegram for approval
-    const approvalText = `New SMS from ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${contactId}`}:\n"${message}"\n\nClaude suggests:\n"${assistantText}"`;
-    
+    // Format the approval text without escaping
+    const approvalText = `New SMS from ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${contactId}`}:
+"${message}"
+
+Claude suggests:
+"${assistantText}"`;
+
     const buttons = {
       inline_keyboard: [[
         { text: '✅ Approve', callback_data: `approve:${assistantMessage.messageId}` },
@@ -72,11 +76,11 @@ export const handleSlickTextReply = async (webhookData) => {
         { text: '✏️ Change', callback_data: `change:${assistantMessage.messageId}` }
       ]]
     };
-
-    console.log("Sending approval request to admin");
     
-    // Send approval request to admin via Telegram
-    await sendTelegramMessage(process.env.ADMIN_TELEGRAM_ID, approvalText, { reply_markup: buttons });
+    // Removed parse_mode option since we're sending plain text
+    await sendTelegramMessage(process.env.ADMIN_TELEGRAM_ID, approvalText, { 
+      reply_markup: buttons 
+    });
 
   } catch (error) {
     console.error("Error handling SlickText reply:", error);
