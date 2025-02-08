@@ -22,7 +22,11 @@ RULES:
    - Set hasAppointment to true ONLY if the assistant has explicitly confirmed or booked the appointment
    - Do NOT set hasAppointment true if the conversation is still ongoing without assistant's confirmation
    - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
-   - Set timeZone to the mentioned timezone (like "EST" or "IST") or leave empty
+   - For timeZone, use IANA timezone names:
+     * For Eastern Time (EST/ET) use "America/New_York"
+     * For Central Time (CST/CT) use "America/Chicago"
+     * For Indian Time (IST) use "Asia/Kolkata"
+     * If timezone is not mentioned, leave empty
    - Use year 2025 for all dates
    - If date/time is in past, use next occurrence
 
