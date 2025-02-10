@@ -6,45 +6,51 @@ const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
 });
 
-export const checkForAppointment = async (conversation) => {
+export const checkForAppointment = async (conversation, currentDate, timezone) => {
   try {
-    const prompt = `You are a JSON-only appointment extractor. Your task is to analyze the conversation and return ONLY a JSON object.
+    const now = moment().tz(timezone);
+    
+    const prompt = `You are a JSON-only appointment extractor. Analyze the conversation and return ONLY a JSON object.
+
+CONTEXT:
+- Current date and time: ${now.format('YYYY-MM-DD HH:mm')}
+- Timezone: ${timezone}
 
 RULES:
-1. Return ONLY valid JSON - no explanations, no questions, no other text
+1. Return ONLY valid JSON - no explanations or other text
 2. Use EXACTLY this format:
 {
   "hasAppointment": false,
   "appointmentDateTime": "",
-  "timeZone": ""
+  "timeZone": "${timezone}"
 }
 
-3. If you detect a call appointment:
-   - Set hasAppointment to true when the assistant confirms a specific call time
-   - Set hasAppointment to false if only suggesting times without confirmation
-   - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
-   - Common patterns to look for:
+3. For appointment detection:
+   - Look for suggested call times in the messages
+   - Common patterns:
      * "will give you a quick call tomorrow at 2 PM"
      * "Does tomorrow at 2 PM work for you?"
-     * "Confirmed! I'll call you on [date] at [time]"
-     * When user says "Confirmed" in response to suggested time
-   - For suggested times like "after 4 pm", do NOT set as appointment until confirmed
-   - Use year 2025 for all dates
+     * "next Monday at 2 PM"
+   - Convert relative dates to actual dates using current date (${now.format('YYYY-MM-DD')}) as reference:
+     * "tomorrow at 2 PM" → next day at 14:00
+     * "next Monday at 2 PM" → next Monday at 14:00
+     * Just "2 PM" → assume tomorrow at 14:00
+   - Set hasAppointment=true only when appointment is confirmed from assistant
+   - Set hasAppointment to false if only suggesting times without confirmation
+   - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
    - IMPORTANT: Always set dates to be in the future from today
+   - Ignore vague times like "anytime" or "after 4 PM"
+   - Use 2025 for the year
    - If a date would be in the past, use the next occurrence of that date
 
-4. For timeZone handling:
-   - Extract timezone from phrases like "Timezone America/New_York" or "in EST"
-   - Use IANA timezone names (VERY IMPORTANT):
-     * For Eastern Time (EST/ET) use "America/New_York"
-     * For Central Time (CST/CT) use "America/Chicago"
-     * For Indian Time (IST) use "Asia/Kolkata"
-   - If timezone is not mentioned, or not able to decode, leave empty
+4. Examples (today is ${now.format('YYYY-MM-DD')}):
+   Input: "will give you a quick call tomorrow at 2 PM"
+   Output: {
+     "hasAppointment": true,
+     "appointmentDateTime": "${now.clone().add(1, 'day').format('YYYY-MM-DD')} 14:00",
+     "timeZone": "${timezone}"
+   }
 
-5. If no clear confirmed call appointment:
-   - Set hasAppointment to false
-   - Leave appointmentDateTime empty
-   - Leave timeZone empty
 
 CONVERSATION TO ANALYZE:
 ${conversation.map((m) => `${m.role}: ${m.content}`).join("\n")}

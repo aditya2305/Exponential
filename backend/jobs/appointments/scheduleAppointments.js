@@ -6,7 +6,7 @@ import schedule from "node-schedule";
 import moment from "moment-timezone";
 // import { makeCall } from "../twilio/makeCall.js";
 import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
-import { CONFIG } from "../../config/index.js";
+import { CONFIG, getTimezoneFromPhoneNumber } from "../../config/index.js";
 import axios from "axios";
 
 const { TELEGRAM: { ADMIN_CHAT_ID, API_URL }, EXTERNAL_CALL_ENDPOINT } = CONFIG;
@@ -23,29 +23,27 @@ export const checkAllLeadsForAppointments = async () => {
       });
       if (existingAppt) continue;
 
-      const result = await checkForAppointment(lead.messages);
+      // Get timezone from phone number
+      const timezone = getTimezoneFromPhoneNumber(lead.phoneNumber);
+      const now = moment().tz(timezone);
+
+      // Pass current date and timezone to checkForAppointment
+      const result = await checkForAppointment(
+        lead.messages,
+        now.format('YYYY-MM-DD HH:mm'),
+        timezone
+      );
+
       if (!result?.hasAppointment) continue;
 
       const dtString = result.appointmentDateTime?.trim();
-      let userTZ = result.timeZone?.trim() || "";
       if (!dtString) {
         console.log("No parseable date/time from user. Skipping.");
         continue;
       }
 
-      let finalTimeZone = userTZ || "America/New_York";
-      // let finalTimeZone = userTZ || "Asia/Kolkata";
-      if ((userTZ.toUpperCase() === "IST")) {
-        finalTimeZone = "Asia/Kolkata";
-      } else if (userTZ.toUpperCase() === "CST") {
-        finalTimeZone = "America/Chicago";
-      } else if (userTZ.toUpperCase() === "EST" || userTZ.toUpperCase() === "ET") {
-        finalTimeZone = "America/New_York";
-      } else if (userTZ === "ET") {
-        finalTimeZone = "America/New_York";
-      } 
-
-      const parsed = moment.tz(dtString, finalTimeZone);
+      // Use the timezone from the phone number
+      const parsed = moment.tz(dtString, timezone);
       if (!parsed.isValid() || parsed.isBefore(moment())) {
         console.log("Invalid date/time or in past:", dtString);
         continue;
@@ -58,19 +56,19 @@ export const checkAllLeadsForAppointments = async () => {
           telegramUserId: lead.telegramUserId || null,
           username: lead.username || null,
           appointmentDate: parsed.utc().toDate(),
-          timeZone: finalTimeZone,
+          timeZone: timezone,
           called: false
         });
         await appt.save();
 
         await sendSlickTextMessage(
           lead.slickTextContactId,
-          `📅 Your appointment has been confirmed for ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`
+          `📅 Your appointment has been confirmed for ${parsed.format("YYYY-MM-DD HH:mm z")} (${timezone})`
         );
 
         const msgId = await sendTelegramMessage(
           ADMIN_CHAT_ID,
-          `📅 *New Appointment Booked*\nPhone: ${lead.phoneNumber}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${finalTimeZone})`,
+          `📅 *New Appointment Booked*\nPhone: ${lead.phoneNumber}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${timezone})`,
           { parse_mode: "Markdown" }
         );
 
