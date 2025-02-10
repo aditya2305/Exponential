@@ -18,19 +18,26 @@ RULES:
   "timeZone": ""
 }
 
-3. If you detect an appointment:
-   - Set hasAppointment to true ONLY if the assistant has explicitly confirmed or booked the appointment
-   - Do NOT set hasAppointment true if the conversation is still ongoing without assistant's confirmation
+3. If you detect a call appointment:
+   - Set hasAppointment to true when the assistant confirms a specific call time
+   - Set hasAppointment to false if only suggesting times without confirmation
    - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
-   - For timeZone, use IANA timezone names:
-     * For Eastern Time (EST/ET) use "America/New_York"
-     * For Central Time (CST/CT) use "America/Chicago"
-     * For Indian Time (IST) use "Asia/Kolkata"
-     * If timezone is not mentioned in the conversation or some unknown code, leave empty
+   - Common patterns to look for:
+     * "will give you a quick call tomorrow at 2 PM"
+     * "Does tomorrow at 2 PM work for you?"
+     * When user says "Confirmed" in response to suggested time
+   - For suggested times like "after 4 pm", do NOT set as appointment until confirmed
    - Use year 2025 for all dates
    - If date/time is in past, use next occurrence
 
-4. If no clear appointment or pending confirmation:
+4. For timeZone handling:
+   - Use IANA timezone names:
+     * For Eastern Time (EST/ET) use "America/New_York"
+     * For Central Time (CST/CT) use "America/Chicago"
+     * For Indian Time (IST) use "Asia/Kolkata"
+   - If timezone is not mentioned, leave empty
+
+5. If no clear confirmed call appointment:
    - Set hasAppointment to false
    - Leave appointmentDateTime empty
    - Leave timeZone empty
