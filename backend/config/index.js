@@ -7,6 +7,8 @@ export const CONFIG = {
   BASE_URL: process.env.BASE_URL,
   MONGODB_URI: process.env.MONGODB_URI,
 
+  EXTERNAL_CALL_ENDPOINT: "https://twilio.getoverseer.io/autoforwards",
+
   // Telegram config
   TELEGRAM: {
     BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
@@ -36,10 +38,8 @@ export const CONFIG = {
     MODEL: "claude-3-5-sonnet-20241022",
   },
 
-  // Default timezone if we can't determine from phone
   DEFAULT_TIMEZONE: "America/New_York",
 
-  // Timezone mappings for known area codes
   US_TIMEZONE_MAP: {
     // Eastern Time
     "212": "America/New_York", "347": "America/New_York", "516": "America/New_York",

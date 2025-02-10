@@ -9,7 +9,7 @@ import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 import { CONFIG } from "../../config/index.js";
 import axios from "axios";
 
-const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
+const { ADMIN_CHAT_ID, API_URL, EXTERNAL_CALL_ENDPOINT } = CONFIG;
 
 export const checkAllLeadsForAppointments = async () => {
   try {
@@ -137,6 +137,15 @@ export const scheduleAppointmentReminders = () => {
           }
 
           // await makeCall(appt._id, appt.phoneNumber);
+          
+          try{
+            await axios.post(EXTERNAL_CALL_ENDPOINT, {
+              phoneNumber: appt.phoneNumber,
+              appointmentId: appt._id
+            })
+          } catch (err) {
+            console.error("Error making autoforward:", err);
+          }
 
           // Update using findByIdAndUpdate to ensure atomic update
           const updated = await Appointment.findByIdAndUpdate(

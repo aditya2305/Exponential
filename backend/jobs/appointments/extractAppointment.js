@@ -26,7 +26,7 @@ RULES:
      * For Eastern Time (EST/ET) use "America/New_York"
      * For Central Time (CST/CT) use "America/Chicago"
      * For Indian Time (IST) use "Asia/Kolkata"
-     * If timezone is not mentioned or some unknown code not mentioned above, leave empty
+     * If timezone is not mentioned in the conversation or some unknown code, leave empty
    - Use year 2025 for all dates
    - If date/time is in past, use next occurrence
 
