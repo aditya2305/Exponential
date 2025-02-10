@@ -57,8 +57,8 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
     });
 
     // // Debug logging
-    // console.log("=== CLAUDE RESPONSE DEBUG ===");
-    // console.log("Raw Response:", JSON.stringify(response, null, 2));
+    console.log("=== CLAUDE RESPONSE DEBUG ===");
+    console.log("Raw Response:", JSON.stringify(response, null, 2));
 
     if (!response?.content?.[0]?.text) {
       console.log("Invalid Claude response structure");
