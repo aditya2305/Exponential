@@ -9,7 +9,7 @@ import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
 import { CONFIG } from "../../config/index.js";
 import axios from "axios";
 
-const { ADMIN_CHAT_ID, API_URL, EXTERNAL_CALL_ENDPOINT } = CONFIG;
+const { TELEGRAM: { ADMIN_CHAT_ID }, EXTERNAL_CALL_ENDPOINT } = CONFIG;
 
 export const checkAllLeadsForAppointments = async () => {
   try {
