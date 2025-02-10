@@ -94,6 +94,30 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
           timeZone: ""
         };
       }
+
+      // Add date validation
+      if (parsed.hasAppointment && parsed.appointmentDateTime) {
+        const appointmentDate = new Date(parsed.appointmentDateTime);
+        const now = new Date();
+        
+        if (isNaN(appointmentDate.getTime())) {
+          console.error("Invalid date/time format:", parsed.appointmentDateTime);
+          return {
+            hasAppointment: false,
+            appointmentDateTime: "",
+            timeZone: ""
+          };
+        }
+        
+        if (appointmentDate < now) {
+          console.error("Invalid date/time or in past:", parsed.appointmentDateTime);
+          return {
+            hasAppointment: false,
+            appointmentDateTime: "",
+            timeZone: ""
+          };
+        }
+      }
       
       return parsed;
     } catch (err) {
