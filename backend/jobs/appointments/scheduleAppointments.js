@@ -138,25 +138,29 @@ export const scheduleAppointmentReminders = () => {
 
           // await makeCall(appt._id, appt.phoneNumber);
           
-          try{
+          try {
+            // Make the external call
             await axios.post(EXTERNAL_CALL_ENDPOINT, {
               phoneNumber: appt.phoneNumber,
               appointmentId: appt._id
-            })
+            });
+
+            // Send Telegram notification directly
+            await sendTelegramMessage(
+              ADMIN_CHAT_ID,
+              `📞 *Call Initiated*\nPhone: ${appt.phoneNumber}\nScheduled Time: ${localTime} (${appt.timeZone})`,
+              { parse_mode: "Markdown" }
+            );
+
           } catch (err) {
-            console.error("Error making autoforward:", err);
+            console.error(`Error making call for appointment ${appt._id}:`, err);
           }
 
-          // Update using findByIdAndUpdate to ensure atomic update
-          const updated = await Appointment.findByIdAndUpdate(
+          // Mark as called
+          await Appointment.findByIdAndUpdate(
             appt._id,
-            { $set: { called: true } },
-            { new: true }
+            { $set: { called: true } }
           );
-
-          if (!updated || !updated.called) {
-            throw new Error(`Failed to mark appointment ${appt._id} as called`);
-          }
 
           console.log(`Successfully marked appointment ${appt._id} for ${appt.phoneNumber} as called=true`);
         } catch (err) {

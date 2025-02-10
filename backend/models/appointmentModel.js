@@ -30,6 +30,10 @@ const appointmentSchema = new mongoose.Schema(
       type: Boolean, 
       default: false 
     },
+    preCallNotified: {
+      type: Boolean,
+      default: false
+    },
     pickedUp: { 
       type: Boolean, 
       default: false 

@@ -43,6 +43,16 @@ const leadSchema = new mongoose.Schema({
 
   preExisting: { type: Boolean, default: null },
 
+  interested: {
+    type: Boolean,
+    default: false
+  },
+
+  lastResponseDate: {
+    type: Date,
+    default: null
+  }
+
 }, {
   timestamps: true
 });
