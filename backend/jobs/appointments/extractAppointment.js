@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { CONFIG } from '../../config/index.js';
+import moment from 'moment-timezone';
 
 const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
@@ -25,17 +26,20 @@ RULES:
    - Common patterns to look for:
      * "will give you a quick call tomorrow at 2 PM"
      * "Does tomorrow at 2 PM work for you?"
+     * "Confirmed! I'll call you on [date] at [time]"
      * When user says "Confirmed" in response to suggested time
    - For suggested times like "after 4 pm", do NOT set as appointment until confirmed
    - Use year 2025 for all dates
-   - If date/time is in past, use next occurrence
+   - IMPORTANT: Always set dates to be in the future from today
+   - If a date would be in the past, use the next occurrence of that date
 
 4. For timeZone handling:
+   - Extract timezone from phrases like "Timezone America/New_York" or "in EST"
    - Use IANA timezone names:
      * For Eastern Time (EST/ET) use "America/New_York"
      * For Central Time (CST/CT) use "America/Chicago"
      * For Indian Time (IST) use "Asia/Kolkata"
-   - If timezone is not mentioned, leave empty
+   - If timezone is not mentioned, or not able to decode, leave empty
 
 5. If no clear confirmed call appointment:
    - Set hasAppointment to false
@@ -97,10 +101,10 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
 
       // Add date validation
       if (parsed.hasAppointment && parsed.appointmentDateTime) {
-        const appointmentDate = new Date(parsed.appointmentDateTime);
-        const now = new Date();
+        const appointmentDate = moment.tz(parsed.appointmentDateTime, parsed.timeZone || 'America/New_York');
+        const now = moment();
         
-        if (isNaN(appointmentDate.getTime())) {
+        if (!appointmentDate.isValid()) {
           console.error("Invalid date/time format:", parsed.appointmentDateTime);
           return {
             hasAppointment: false,
@@ -109,7 +113,8 @@ REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
           };
         }
         
-        if (appointmentDate < now) {
+        // Compare using Unix timestamps to avoid timezone issues
+        if (appointmentDate.unix() < now.unix()) {
           console.error("Invalid date/time or in past:", parsed.appointmentDateTime);
           return {
             hasAppointment: false,
