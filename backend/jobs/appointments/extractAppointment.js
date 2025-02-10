@@ -35,7 +35,7 @@ RULES:
 
 4. For timeZone handling:
    - Extract timezone from phrases like "Timezone America/New_York" or "in EST"
-   - Use IANA timezone names:
+   - Use IANA timezone names (VERY IMPORTANT):
      * For Eastern Time (EST/ET) use "America/New_York"
      * For Central Time (CST/CT) use "America/Chicago"
      * For Indian Time (IST) use "Asia/Kolkata"

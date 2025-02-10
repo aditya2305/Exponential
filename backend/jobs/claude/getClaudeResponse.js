@@ -24,7 +24,7 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
     4. Always include the timezone in a simplified format (ET, CT, PT, etc.) during the conversation
     5. Format example: "Would tomorrow, Tuesday, March 19 at 2:00 PM ET work for you? I can also do any time after 4 PM."
     6. Only confirm the appointment after they agree to the suggested time
-    7. In the final confirmation, always include the complete details with full timezone name (e.g., "Perfect! I've scheduled our call for Tuesday, March 19 at 2:00 PM Eastern Time (America/New_York)")
+    7. [CRITICAL - MUST FOLLOW] In the final confirmation, always include the complete details with full timezone name (e.g., "Perfect! I've scheduled our call for Tuesday, March 19 at 2:00 PM Eastern Time (America/New_York)")
 
     Look below for examples. If they give a specific time to call them, or say to call them anytime, respond by suggesting a specific time and asking for confirmation.
     
