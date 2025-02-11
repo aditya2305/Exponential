@@ -1,5 +1,16 @@
 import dotenv from "dotenv";
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load env from the backend directory (1 level up from config folder)
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// Add this line to debug
+console.log('MongoDB URI from env:', process.env.MONGODB_URI);
 
 export const CONFIG = {
   // Server config

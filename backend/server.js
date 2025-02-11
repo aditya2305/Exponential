@@ -9,6 +9,9 @@ import { addNewLeadSlickText } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const app = express();
 app.use(cors());
 app.use(express.json());
