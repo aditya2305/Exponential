@@ -31,7 +31,7 @@ export const sendInitialMessage = async (phoneNumber, contactData = {}) => {
     // Use sendSlickTextMessage instead of direct axios call
     await sendSlickTextMessage(
       contactId,
-      "Thank you for your interest! How can I assist you today?"
+      "Hi, this is Julie. Thank you for your application for health coverage.\n\nHave your best 2025 rates pulled up and ready.\n\nWorth a look?\nPress STOP to end"
     );
     
     return contactId;
