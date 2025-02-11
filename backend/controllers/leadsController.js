@@ -1,6 +1,7 @@
 import Lead from "../models/leadModel.js";
 import { sendInitialMessage, findExistingContact } from '../jobs/slicktext/contactManagement.js';
 import { sendSlickTextMessage } from '../jobs/slicktext/sendSlickTextMessage.js';
+import { getStateFromZipCode } from '../config/index.js';
 
 export const addNewLeadSlickText = async (req, res) => {
   try {
@@ -53,7 +54,26 @@ export const addNewLeadSlickText = async (req, res) => {
     let contactId;
     if (existingContact) {
       contactId = existingContact.contact_id;
-      await sendSlickTextMessage(contactId, "Hi, this is Julie. Thank you for your application for health coverage.\n\nHave your best 2025 rates pulled up and ready.\n\nWorth a look?\nPress STOP to end");
+      let messageText = fullName 
+        ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
+        : "Hi, this is Julie.";
+      
+      messageText += " Thank you for your application for health coverage.\n\n";
+      
+      if (zipcode) {
+        const state = getStateFromZipCode(zipcode);
+        if (state) {
+          messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
+        } else {
+          messageText += `I've just pulled up the top 2025 rates in your area.`;
+        }
+      } else {
+        messageText += `Have your best 2025 rates pulled up and ready.`;
+      }
+      
+      messageText += "\n\nWorth a look? Press STOP to end";
+      
+      await sendSlickTextMessage(contactId, messageText);
     } else {
       contactId = await sendInitialMessage(normalizedPhone, {
         fullName,

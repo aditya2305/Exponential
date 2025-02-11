@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { CONFIG } from "./config/index.js";
-import { checkAllLeadsForAppointments } from "./jobs/appointments/scheduleAppointments.js";
+import { CONFIG } from "../config/index.js";
+import { checkAllLeadsForAppointments } from "./appointments/scheduleAppointments.js";
 
 // This will ONLY handle booking appointments from conversations
 (async () => {

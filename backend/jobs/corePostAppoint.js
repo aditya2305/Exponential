@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import moment from 'moment-timezone';
-import { sendSlickTextMessage } from "./jobs/slicktext/sendSlickTextMessage.js";
-import { sendTelegramMessage } from "./jobs/telegram/sendTelegramMessage.js";
-import { CONFIG } from "./config/index.js";
-import Appointment from "./models/appointmentModel.js";
+import { sendSlickTextMessage } from "./slicktext/sendSlickTextMessage.js";
+import { sendTelegramMessage } from "./telegram/sendTelegramMessage.js";
+import { CONFIG } from "../config/index.js";
+import Appointment from "../models/appointmentModel.js";
 
 const { MONGODB_URI, ADMIN_CHAT_ID } = CONFIG;
 

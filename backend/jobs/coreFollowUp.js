@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import moment from "moment-timezone";
-import { CONFIG } from "./config/index.js";
-import Lead from "./models/leadModel.js";
-import { sendSlickTextMessage } from "./jobs/slicktext/sendSlickTextMessage.js";
-import { sendTelegramMessage } from "./jobs/telegram/sendTelegramMessage.js";
+import { CONFIG } from "../config/index.js";
+import Lead from "../models/leadModel.js";
+import { sendSlickTextMessage } from "./slicktext/sendSlickTextMessage.js";
+import { sendTelegramMessage } from "./telegram/sendTelegramMessage.js";
 
 const { MONGODB_URI, ADMIN_CHAT_ID } = CONFIG;
 
@@ -78,11 +78,3 @@ setInterval(checkAndSendFollowUps, 60 * 60 * 1000);
 // Initial check on startup
 checkAndSendFollowUps();
 
-// Handle process termination
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Closing MongoDB connection...');
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed. Exiting...');
-    process.exit(0);
-  });
-}); 

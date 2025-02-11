@@ -31,13 +31,23 @@ RULES:
      * "will give you a quick call tomorrow at 2 PM"
      * "Does tomorrow at 2 PM work for you?"
      * "next Monday at 2 PM"
+     * "December 25th at 2 PM"
+     * "let's do 4 PM on the 11th"
+     * "2024-12-25 at 2 PM"
+     * "can we do the 15th at 3 PM"
    - Convert relative dates to actual dates using current date (${now.format('YYYY-MM-DD')}) as reference:
      * "tomorrow at 2 PM" → next day at 14:00
      * "next Monday at 2 PM" → next Monday at 14:00
      * Just "2 PM" → assume tomorrow at 14:00
+     * "December 25th at 2 PM" → 2025-12-25 14:00
+     * "4 PM on the 11th" → current/next month 11th at 16:00
+     * "2024-12-25 at 2 PM" → 2024-12-25 14:00
+   - For dates mentioning only day (e.g., "the 11th", "on the 15th"):
+     * If the day has passed this month, use next month
+     * If the day hasn't passed, use current month
    - Set hasAppointment=true only when appointment is confirmed from assistant
    - Set hasAppointment to false if only suggesting times without confirmation
-   - Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
+   - IMPORTANT: Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
    - IMPORTANT: Always set dates to be in the future from today
    - Ignore vague times like "anytime" or "after 4 PM"
    - Use 2025 for the year
@@ -51,6 +61,33 @@ RULES:
      "timeZone": "${timezone}"
    }
 
+   Input: "let's do 4 PM on the 11th"
+   Output: {
+     "hasAppointment": true,
+     "appointmentDateTime": "${now.date() >= 11 ? now.clone().add(1, 'month').date(11).format('YYYY-MM-DD') : now.clone().date(11).format('YYYY-MM-DD')} 16:00",
+     "timeZone": "${timezone}"
+   }
+
+   Input: "December 25th at 2 PM works for me"
+   Output: {
+     "hasAppointment": true,
+     "appointmentDateTime": "2025-12-25 14:00",
+     "timeZone": "${timezone}"
+   }
+
+   Input: "2024-12-25 at 2 PM"
+   Output: {
+     "hasAppointment": true,
+     "appointmentDateTime": "2024-12-25 14:00",
+     "timeZone": "${timezone}"
+   }
+
+   Input: "can we do the 15th at 3 PM"
+   Output: {
+     "hasAppointment": true,
+     "appointmentDateTime": "${now.date() >= 15 ? now.clone().add(1, 'month').date(15).format('YYYY-MM-DD') : now.clone().date(15).format('YYYY-MM-DD')} 15:00",
+     "timeZone": "${timezone}"
+   }
 
 CONVERSATION TO ANALYZE:
 ${conversation.map((m) => `${m.role}: ${m.content}`).join("\n")}
