@@ -1,7 +1,10 @@
 import express from "express"
 import cors from "cors"
 import mongoose from "mongoose"
-import { CONFIG } from "./config/index.js"
+import dotenv from "dotenv";
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { CONFIG, updateConfig } from "./config/index.js"
 import { setWebhook } from "./jobs/telegram/setWebhook.js";
 import { handleTelegramUpdate } from "./jobs/telegram/handleTelegramMessage.js";
 import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js";
@@ -9,8 +12,15 @@ import { addNewLeadSlickText } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
 
-import dotenv from "dotenv";
-dotenv.config();
+// Get the directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables first
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Update CONFIG with environment variables
+updateConfig();
 
 const app = express();
 app.use(cors());

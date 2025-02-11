@@ -6,11 +6,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load env from the backend directory (1 level up from config folder)
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Add this line to debug
-console.log('MongoDB URI from env:', process.env.MONGODB_URI);
 
 export const CONFIG = {
   // Server config
@@ -146,4 +143,26 @@ export const getStateFromZipCode = (zipCode) => {
   }
   
   return null;
+};
+
+// Add a function to update config values
+export const updateConfig = () => {
+  CONFIG.PORT = process.env.PORT || 3000;
+  CONFIG.BASE_URL = process.env.BASE_URL;
+  CONFIG.MONGODB_URI = process.env.MONGODB_URI;
+
+  CONFIG.TELEGRAM.BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  CONFIG.TELEGRAM.ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_ID;
+  CONFIG.TELEGRAM.API_URL = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+
+  CONFIG.TWILIO.ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+  CONFIG.TWILIO.AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+  CONFIG.TWILIO.CALLER_NUMBER = process.env.TWILIO_CALLER_NUMBER;
+  CONFIG.TWILIO.FORWARD_NUMBER = process.env.FORWARD_NUMBER;
+
+  CONFIG.SLICKTEXT.API_KEY = process.env.SLICKTEXT_API_KEY;
+  CONFIG.SLICKTEXT.BRAND_ID = process.env.BRAND_ID;
+  CONFIG.SLICKTEXT.WEBHOOK_SECRET = process.env.SLICKTEXT_WEBHOOK_SECRET;
+
+  CONFIG.ANTHROPIC.API_KEY = process.env.ANTHROPIC_API_KEY;
 }; 

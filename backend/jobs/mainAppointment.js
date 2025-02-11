@@ -1,18 +1,8 @@
 import mongoose from "mongoose";
 import { CONFIG } from "../config/index.js";
 import { checkAllLeadsForAppointments } from "./appointments/scheduleAppointments.js";
-import dotenv from "dotenv";
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-// Get the directory path
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load env from the backend root directory
-dotenv.config({ path: path.join(__dirname, '../../.env') });
-
-const MONGODB_URI = process.env.MONGODB_URI || CONFIG.MONGODB_URI;
+const MONGODB_URI = CONFIG.MONGODB_URI;
 
 if (!MONGODB_URI) {
   console.error("MONGODB_URI is not defined in environment variables or CONFIG");
