@@ -53,7 +53,7 @@ export const addNewLeadSlickText = async (req, res) => {
     let contactId;
     if (existingContact) {
       contactId = existingContact.contact_id;
-      await sendSlickTextMessage(contactId, "Hi, this is Julie. Thank you for your application for health coverage.\n\nWas looping back and found some really great rates for 2025.\n\nWorth a look?\nPress STOP to end");
+      await sendSlickTextMessage(contactId, "Hi, this is Julie. Thank you for your application for health coverage.\n\nHave your best 2025 rates pulled up and ready.\n\nWorth a look?\nPress STOP to end");
     } else {
       contactId = await sendInitialMessage(normalizedPhone, {
         fullName,
