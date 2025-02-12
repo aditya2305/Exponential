@@ -2,7 +2,7 @@ import axios from "axios";
 import { CONFIG, getStateFromZipCode } from "../../config/index.js";
 import { sendSlickTextMessage } from "./sendSlickTextMessage.js";
 
-export const sendInitialMessage = async (phoneNumber, contactData = {}) => {
+export const sendInitialMessage = async (phoneNumber, contactData = {}, messageText) => {
   try {
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
     
@@ -27,26 +27,6 @@ export const sendInitialMessage = async (phoneNumber, contactData = {}) => {
     );
 
     const contactId = contactResponse.data.contact_id;
-    
-    // Construct personalized message
-    let messageText = contactData.fullName 
-      ? `Hi ${contactData.fullName.split(' ')[0]}, this is Julie.` 
-      : "Hi, this is Julie.";
-    
-    messageText += " Thank you for your application for health coverage.\n\n";
-    
-    if (contactData.zipcode) {
-      const state = getStateFromZipCode(contactData.zipcode);
-      if (state) {
-        messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
-      } else {
-        messageText += `I've just pulled up the top 2025 rates in your area.`;
-      }
-    } else {
-      messageText += `Have your best 2025 rates pulled up and ready.`;
-    }
-    
-    messageText += "\n\nWorth a look? Press STOP to end";
     
     // Send the personalized message
     await sendSlickTextMessage(contactId, messageText);

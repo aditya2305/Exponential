@@ -32,6 +32,8 @@ export const handleSlickTextReply = async (webhookData) => {
       messageId: new mongoose.Types.ObjectId().toString(),
       role: "user", 
       content: message,
+      approved: true,
+      processed: true,
       timestamp: new Date()
     });
     await lead.save();

@@ -52,27 +52,27 @@ export const addNewLeadSlickText = async (req, res) => {
     const existingContact = await findExistingContact(normalizedPhone);
 
     let contactId;
+    let messageText = fullName 
+      ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
+      : "Hi, this is Julie.";
+    
+    messageText += " Thank you for your application for health coverage.\n\n";
+    
+    if (zipcode) {
+      const state = getStateFromZipCode(zipcode);
+      if (state) {
+        messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
+      } else {
+        messageText += `I've just pulled up the top 2025 rates in your area.`;
+      }
+    } else {
+      messageText += `Have your best 2025 rates pulled up and ready.`;
+    }
+    
+    messageText += "\n\nWorth a look? Press STOP to end";
+
     if (existingContact) {
       contactId = existingContact.contact_id;
-      let messageText = fullName 
-        ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
-        : "Hi, this is Julie.";
-      
-      messageText += " Thank you for your application for health coverage.\n\n";
-      
-      if (zipcode) {
-        const state = getStateFromZipCode(zipcode);
-        if (state) {
-          messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
-        } else {
-          messageText += `I've just pulled up the top 2025 rates in your area.`;
-        }
-      } else {
-        messageText += `Have your best 2025 rates pulled up and ready.`;
-      }
-      
-      messageText += "\n\nWorth a look? Press STOP to end";
-      
       await sendSlickTextMessage(contactId, messageText);
     } else {
       contactId = await sendInitialMessage(normalizedPhone, {
@@ -87,7 +87,7 @@ export const addNewLeadSlickText = async (req, res) => {
         preExisting,
         source,
         buyer
-      });
+      }, messageText);
     }
     
     // Create lead in our database
@@ -106,7 +106,13 @@ export const addNewLeadSlickText = async (req, res) => {
       preExisting: preExisting === undefined ? null : Boolean(preExisting),
       slickTextContactId: contactId,
       source,
-      buyer
+      buyer,
+      messages: [{
+        role: "assistant",
+        content: messageText,
+        approved: true,
+        processed: true
+      }]
     });
     await lead.save();
 

@@ -7,14 +7,19 @@ import ChangedResponse from "../../models/changedResponseModel.js";
 import mongoose from "mongoose";
 import { CONFIG, getTimezoneFromPhoneNumber } from "../../config/index.js";
 import { sendSlickTextMessage } from "../slicktext/sendSlickTextMessage.js";
+import { processLeadsCsv } from '../csv/csvParser.js';
 
 const { ADMIN_CHAT_ID, API_URL } = CONFIG.TELEGRAM;
 
-// State management (consider moving to a separate state manager)
+// State management 
 const pendingMessages = {
   changeMessageId: null,
   instructionMessageId: null,
-  changeAdminMessageId: null
+  changeAdminMessageId: null,
+
+  leadlistActive: false,
+  leadlistTimeout: null,
+  leadlistInstructionId: null
 };
 
 // Update deleteMessage helper to use config
@@ -26,6 +31,23 @@ const deleteMessage = async (messageId) => {
     });
   } catch (error) {
     console.error("Error deleting message:", error);
+  }
+};
+
+// Add helper to cleanup leadlist state
+const cleanupLeadlistState = async () => {
+  if (pendingMessages.leadlistInstructionId) {
+    try {
+      await deleteMessage(pendingMessages.leadlistInstructionId);
+    } catch (error) {
+      console.error("Error deleting leadlist instruction message:", error);
+    }
+  }
+  pendingMessages.leadlistActive = false;
+  pendingMessages.leadlistInstructionId = null;
+  if (pendingMessages.leadlistTimeout) {
+    clearTimeout(pendingMessages.leadlistTimeout);
+    pendingMessages.leadlistTimeout = null;
   }
 };
 
@@ -47,6 +69,102 @@ export const handleTelegramUpdate = async (update) => {
     if (String(chatId) === String(CONFIG.TELEGRAM.ADMIN_CHAT_ID)) {
       if (fromBot) return;
       
+      // Handle /leadlist command
+      if (text === '/leadlist') {
+        // Clean up any existing leadlist state
+        await cleanupLeadlistState();
+        
+        // Set new leadlist state
+        pendingMessages.leadlistActive = true;
+        
+        // Send instruction message
+        const instructionMsg = await sendTelegramMessage(
+          CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+          "Please send the CSV file with columns: name, phoneNumber, zipcode\n\nThis request will expire in 60 seconds."
+        );
+        
+        pendingMessages.leadlistInstructionId = instructionMsg;
+        
+        // Set timeout to clear the state after 60 seconds
+        pendingMessages.leadlistTimeout = setTimeout(async () => {
+          if (pendingMessages.leadlistActive) {
+            const expiredMsg = await sendTelegramMessage(
+              CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+              "❌ CSV upload request expired. Please send /leadlist command again."
+            );
+            
+            // Delete expired message after 3 seconds
+            setTimeout(() => deleteMessage(expiredMsg), 3000);
+            
+            await cleanupLeadlistState();
+          }
+        }, 60000); // 60 seconds
+        
+        return;
+      }
+
+      // Handle CSV file upload
+      if (update.message.document) {
+        const fileId = update.message.document.file_id;
+        const fileName = update.message.document.file_name;
+        
+        if (fileName.toLowerCase().endsWith('.csv')) {
+          // Check if leadlist command is active
+          if (!pendingMessages.leadlistActive) {
+            const warningMsg = await sendTelegramMessage(
+              CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+              "⚠️ Please send /leadlist command first before uploading CSV file."
+            );
+            setTimeout(() => deleteMessage(warningMsg), 2000);
+            return;
+          }
+
+          try {
+            // Get file path from Telegram
+            const fileInfo = await axios.get(
+              `${CONFIG.TELEGRAM.API_URL}/getFile?file_id=${fileId}`
+            );
+            
+            const filePath = fileInfo.data.result.file_path;
+            const fileUrl = `https://api.telegram.org/file/bot${CONFIG.TELEGRAM.BOT_TOKEN}/${filePath}`;
+            
+            // Download and process CSV
+            const response = await axios.get(fileUrl);
+            const leads = await processLeadsCsv(response.data);
+            
+            const successMsg = await sendTelegramMessage(
+              CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+              `✅ Successfully processed ${leads.length} leads from CSV file`
+            );
+
+            setTimeout(() => deleteMessage(successMsg), 5000);
+
+            // Clean up leadlist state after successful processing
+            await cleanupLeadlistState();
+          } catch (error) {
+            console.error("Error processing CSV:", error);
+            const errorMsg = await sendTelegramMessage(
+              CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+              "❌ Error processing CSV file. Please ensure correct format: name, phoneNumber, zipcode"
+            );
+    
+            setTimeout(() => deleteMessage(errorMsg), 10000);
+            
+            // Clean up state on error too
+            await cleanupLeadlistState();
+          }
+          return;
+        }
+        else {
+          const invalidFileMsg = await sendTelegramMessage(
+            CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+            "❌ Invalid file type. Please send a CSV file with columns: name, phoneNumber, zipcode"
+          );
+
+          setTimeout(() => deleteMessage(invalidFileMsg), 10000);
+        }
+      }
+      
       if (replyToMessage && pendingMessages.changeMessageId) {
         await changeNextPendingMessage(text, replyToMessage.message_id, update.message.message_id);
       } else {
@@ -55,7 +173,6 @@ export const handleTelegramUpdate = async (update) => {
           "Direct messages are not accepted in this group."
         );
 
-        // Use the deleteMessage helper
         setTimeout(() => {
           deleteMessage(update.message.message_id);
           deleteMessage(warningMsg);
@@ -181,7 +298,12 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
       return;
     }
 
-    lead.messages.push({ role: "user", content: userText });
+    lead.messages.push({ 
+      role: "user", 
+      content: userText,
+      approved: true,
+      processed: true 
+    });
     await lead.save();
     
     const now = moment();

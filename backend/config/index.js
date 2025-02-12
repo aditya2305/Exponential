@@ -59,7 +59,6 @@ export const CONFIG = {
     "303": "America/Denver", "480": "America/Denver", "505": "America/Denver",
   },
 
-  // Add ZIP code ranges for US states
   ZIP_CODES: {
     '00600-00799': 'Puerto Rico',
     '00800-00899': 'Virgin Islands',
@@ -115,7 +114,9 @@ export const CONFIG = {
     '97000-97999': 'Oregon',
     '98000-99499': 'Washington',
     '99500-99999': 'Alaska'
-  }
+  },
+
+  AGED_LEADS_LIMIT: 25,
 };
 
 // Timezone utilities

@@ -7,10 +7,12 @@ const client = new Anthropic({
 
 export const getClaudeResponse = async (messages, currentDate, currentTimeZone) => {
   try {
+    // Filter for approved messages only
+    const approvedMessages = messages.filter(m => m.approved === true);
 
-    const conversationText = "messages=[\n" + messages.map(m => {
+    const conversationText = "messages=[\n" + approvedMessages.map(m => {
       const escapedContent = m.content.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
-      return `  {\n    "role": "${m.role}",\n    "content": [\n      {\n        "type": "text",\n        "text": "${escapedContent}"\n      }\n    ]\n  }`;
+      return `  {\n    "role": "${m.role}",\n    "content": [\n      {\n        "type": "text",\n        "text": "${escapedContent}"\n      }\n    ],\n    "timestamp": "${m.createdAt}"\n  }`;
     }).join(",\n") + "\n]";
 
     const promptIntro = `From now on. You are a health coverage enrollment specialist, emailing a person that submitted your information. Your response to this prompt should only be the response that we should give to the person. Nothing else. Keep the responses short and concise. Don't over explain or talk more than you need. if they ask for information related to pricing or specific coverage mention that we need to go over a quick call to discuss your options because we need to review your plans securely.
@@ -23,7 +25,7 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
     5. Keep responses simple and focused on getting agreement for a call time
     6. Do not include timezone information in messages
     7. Do not include full date information in messages
-    8. After confirmation from user, send “Confirmed, give you a call then!”
+    8. IMPORTANT: After confirmation from user, send "Confirmed, give you a call then!"
 
     Look below for examples. If they give a specific time to call them, or say to call them anytime, respond by suggesting a specific time and asking for confirmation.
     
@@ -77,7 +79,6 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
       messages: [{ role: "user", content: fullPrompt }],
     });
 
-    console.log("GENERATED CLAUDE RESPONSE")
 
     return msg;
   } catch (error) {

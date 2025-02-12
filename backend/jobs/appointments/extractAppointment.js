@@ -6,9 +6,16 @@ const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
 });
 
-export const checkForAppointment = async (conversation, currentDate, timezone) => {
+export const checkForAppointment = async (messages, currentDate, timezone) => {
   try {
     const now = moment().tz(timezone);
+    
+    const approvedMessages = messages.filter(m => m.approved === true);
+    
+    const conversationText = "messages=[\n" + approvedMessages.map(m => {
+      const escapedContent = m.content.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+      return `  {\n    "role": "${m.role}",\n    "content": [\n      {\n        "type": "text",\n        "text": "${escapedContent}"\n      }\n    ],\n    "timestamp": "${m.createdAt}"\n  }`;
+    }).join(",\n") + "\n]";
     
     const prompt = `You are a JSON-only appointment extractor. Analyze the conversation and return ONLY a JSON object.
 
@@ -51,7 +58,8 @@ RULES:
    - IMPORTANT: Always set dates to be in the future from today
    - Ignore vague times like "anytime" or "after 4 PM"
    - Use 2025 for the year
-   - If a date would be in the past, use the next occurrence of that date
+   - Give priority to the most recent messages when looking for appointment times (check timestamps)
+
 
 4. Examples (today is ${now.format('YYYY-MM-DD')}):
    Input: "will give you a quick call tomorrow at 2 PM"
@@ -90,7 +98,7 @@ RULES:
    }
 
 CONVERSATION TO ANALYZE:
-${conversation.map((m) => `${m.role}: ${m.content}`).join("\n")}
+${conversationText}
 
 REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`;
 

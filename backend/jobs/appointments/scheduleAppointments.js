@@ -16,6 +16,9 @@ export const checkAllLeadsForAppointments = async () => {
     const leads = await Lead.find();
     for (const lead of leads) {
       if (lead.unsubscribed || !lead.slickTextContactId) continue;
+      
+      // Skip leads with no messages or just 1 message (no reply yet)
+      if (!lead.messages?.length || lead.messages.length === 1) continue;
 
       const existingAppt = await Appointment.findOne({
         phoneNumber: lead.phoneNumber,

@@ -11,15 +11,14 @@ import { handleSlickTextReply } from "./jobs/slicktext/handleSlickTextReplies.js
 import { addNewLeadSlickText } from "./controllers/leadsController.js";
 import { handleTwilioStatus, handleTwilioVoice } from "./jobs/twilio/handleTwilioWebhook.js";
 import { makeCall } from "./jobs/twilio/makeCall.js";
+// import './jobs/core.js';
+import "./config/index.js"
 
-// Get the directory path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables first
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-// Update CONFIG with environment variables
 updateConfig();
 
 const app = express();

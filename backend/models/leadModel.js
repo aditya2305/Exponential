@@ -48,6 +48,11 @@ const leadSchema = new mongoose.Schema({
     default: false
   },
 
+  aged: {
+    type: Boolean,
+    default: false
+  },
+
   lastResponseDate: {
     type: Date,
     default: null
