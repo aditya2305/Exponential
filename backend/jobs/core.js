@@ -10,12 +10,14 @@ const AGED_LEADS_LIMIT = CONFIG.AGED_LEADS_LIMIT || 25;
 
 const processAgedLeads = async () => {
   try {
-    // Find aged leads with no messages
+    // Find aged leads with no messages, sorted by creation date
     const leads = await Lead.find({
       aged: true,
       'messages.0': { $exists: false },
       unsubscribed: false,
-    }).limit(AGED_LEADS_LIMIT);
+    })
+    .sort({ createdAt: 1 }) // 1 for ascending (oldest first), -1 for descending
+    .limit(AGED_LEADS_LIMIT);
 
     console.log(`Processing ${leads.length} aged leads`);
 

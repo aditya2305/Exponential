@@ -66,5 +66,7 @@ const leadSchema = new mongoose.Schema({
 leadSchema.index({ phoneNumber: 1 });
 // Index for email lookups
 leadSchema.index({ email: 1 });
+// Add to your existing indexes
+leadSchema.index({ aged: 1, unsubscribed: 1, createdAt: 1 });
 
 export default mongoose.model("Lead", leadSchema);
