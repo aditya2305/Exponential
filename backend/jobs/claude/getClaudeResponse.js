@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { CONFIG } from '../../config/index.js';
+import ChangedResponse from '../../models/changedResponse.js';
 
 const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
@@ -9,6 +10,17 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
   try {
     // Filter for approved messages only
     const approvedMessages = messages.filter(m => m.approved === true);
+
+    // Get changed responses from database
+    const changedResponses = await ChangedResponse.find({}).sort({ createdAt: -1 });
+    
+    const changedResponsesText = changedResponses.length > 0 ? 
+      "\nHere are some examples of responses that were modified by human experts. Please learn from these corrections to improve your responses:\n" + 
+      changedResponses.map(cr => {
+        return `User: "${cr.originalMessage.content}"
+Initial AI Response: "${cr.claudeResponse.content}"
+Improved Response: "${cr.changedResponse.content}"`
+      }).join("\n\n") + "\n" : "";
 
     const conversationText = "messages=[\n" + approvedMessages.map(m => {
       const escapedContent = m.content.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
@@ -26,6 +38,8 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
     6. Do not include timezone information in messages
     7. Do not include full date information in messages
     8. IMPORTANT: After confirmation from user, send "Confirmed, give you a call then!"
+
+    ${changedResponsesText}
 
     Look below for examples. If they give a specific time to call them, or say to call them anytime, respond by suggesting a specific time and asking for confirmation.
     
@@ -72,6 +86,8 @@ export const getClaudeResponse = async (messages, currentDate, currentTimeZone) 
     ${conversationText}`;
 
     const fullPrompt = promptIntro;
+
+    console.log("Claude prompt - \n", fullPrompt);
 
     const msg = await client.messages.create({
       model: "claude-3-5-sonnet-20241022",

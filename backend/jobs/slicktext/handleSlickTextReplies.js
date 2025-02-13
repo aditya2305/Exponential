@@ -27,6 +27,14 @@ export const handleSlickTextReply = async (webhookData) => {
       return;
     }
 
+    // Handle STOP message
+    if (message.trim().toLowerCase() === "stop") {
+      lead.unsubscribed = true;
+      await lead.save();
+      console.log(`Lead ${contactId} unsubscribed via SlickText STOP message`);
+      return;
+    }
+
     // Add user message to conversation history
     lead.messages.push({ 
       messageId: new mongoose.Types.ObjectId().toString(),
