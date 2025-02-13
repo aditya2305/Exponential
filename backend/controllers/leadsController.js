@@ -52,24 +52,28 @@ export const addNewLeadSlickText = async (req, res) => {
     const existingContact = await findExistingContact(normalizedPhone);
 
     let contactId;
+    // let messageText = fullName 
+    //   ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
+    //   : "Hi, this is Julie.";
+    
+    // messageText += " Thank you for your application for health coverage.\n\n";
+    
+    // if (zipcode) {
+    //   const state = getStateFromZipCode(zipcode);
+    //   if (state) {
+    //     messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
+    //   } else {
+    //     messageText += `I've just pulled up the top 2025 rates in your area.`;
+    //   }
+    // } else {
+    //   messageText += `Have your best 2025 rates pulled up and ready.`;
+    // }
+    
+    // messageText += "\n\nWorth a look? Press STOP to end";
+
     let messageText = fullName 
-      ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
-      : "Hi, this is Julie.";
-    
-    messageText += " Thank you for your application for health coverage.\n\n";
-    
-    if (zipcode) {
-      const state = getStateFromZipCode(zipcode);
-      if (state) {
-        messageText += `I've just pulled up the top 2025 ${state} rates in your area.`;
-      } else {
-        messageText += `I've just pulled up the top 2025 rates in your area.`;
-      }
-    } else {
-      messageText += `Have your best 2025 rates pulled up and ready.`;
-    }
-    
-    messageText += "\n\nWorth a look? Press STOP to end";
+      ? `Thank you for your interest in health insurance ${fullName.split(' ')[0]}! How can I assist you today? STOP to end`
+      : "Thank you for your interest in health insurance! How can I assist you today? STOP to end";
 
     if (existingContact) {
       contactId = existingContact.contact_id;

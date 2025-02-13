@@ -23,24 +23,26 @@ const processAgedLeads = async () => {
 
     for (const lead of leads) {
       try {
-        let messageText = lead.fullName 
-          ? `Hi ${lead.fullName.split(' ')[0]}, this is Julie.` 
-          : "Hi, this is Julie.";
-        
-        messageText += " Noticed your quote for health insurance you submitted a while ago.\n\n";
-        
-        if (lead.zipcode) {
-          const state = getStateFromZipCode(lead.zipcode);
-          if (state) {
-            messageText += `Some new 2025 ${state} rates have come across my desk so I wanted to reach out.`;
-          } else {
-            messageText += `I've just pulled up the top 2025 rates have come across my desk so I wanted to reach out.`;
-          }
-        } else {
-          messageText += `Some new 2025 rates have come across my desk so I wanted to reach out.`;
-        }
-        
-        messageText += "\n\nWorth a look? Press STOP to end";
+        // Old message format:
+        // let messageText = lead.fullName 
+        //   ? `Hi ${lead.fullName.split(' ')[0]}, this is Julie.` 
+        //   : "Hi, this is Julie.";
+        // messageText += " Noticed your quote for health insurance you submitted a while ago.\n\n";
+        // if (lead.zipcode) {
+        //   const state = getStateFromZipCode(lead.zipcode);
+        //   if (state) {
+        //     messageText += `Some new 2025 ${state} rates have come across my desk so I wanted to reach out.`;
+        //   } else {
+        //     messageText += `I've just pulled up the top 2025 rates have come across my desk so I wanted to reach out.`;
+        //   }
+        // } else {
+        //   messageText += `Some new 2025 rates have come across my desk so I wanted to reach out.`;
+        // }
+        // messageText += "\n\nWorth a look? Press STOP to end";
+
+        const messageText = lead.fullName 
+          ? `Still looking for health insurance ${lead.fullName.split(' ')[0]}? STOP to end`
+          : "Still looking for health insurance? STOP to end";
 
         const existingContact = await findExistingContact(lead.phoneNumber);
 
