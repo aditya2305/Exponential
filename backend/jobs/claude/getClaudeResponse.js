@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { CONFIG } from '../../config/index.js';
-import ChangedResponse from '../../models/changedResponse.js';
+import ChangedResponse from '../../models/changedResponseModel.js';
 
 const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
