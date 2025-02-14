@@ -40,9 +40,11 @@ const processAgedLeads = async () => {
         // }
         // messageText += "\n\nWorth a look? Press STOP to end";
 
-        const messageText = lead.fullName 
-          ? `Still looking for health insurance ${lead.fullName.split(' ')[0]}? STOP to end`
-          : "Still looking for health insurance? STOP to end";
+        // const messageText = lead.fullName 
+        //   ? `Still looking for health insurance ${lead.fullName.split(' ')[0]}? STOP to end`
+        //   : "Still looking for health insurance? STOP to end";
+
+        const messageText = "I noticed you submitted an application a while back for health insurance. You’re probably covered, but you’re probably not getting the best price possible. We took a look at your best rates for 2025, would you be available for a quick call to go over your options? Reply STOP to end.";
 
         const existingContact = await findExistingContact(lead.phoneNumber);
 
