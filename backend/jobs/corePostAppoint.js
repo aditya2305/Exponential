@@ -87,7 +87,7 @@ const checkAndNotifyUpcomingAppointments = async () => {
 
         // 5-minute reminder
         if (!appt.preCallNotified && 
-            appointmentTime.isBetween(fiveMinutesFromNow, fiveMinutesFromNow.clone().add(2, 'minutes'))) {
+            appointmentTime.isBetween(fiveMinutesFromNow, fiveMinutesFromNow.clone().add(5, 'minutes'), null, '[]')) {
           const message = "Hi there, just a reminder of our meeting in about 5 min.";
           await sendSlickTextMessage(
             appt.slickTextContactId,
