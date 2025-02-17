@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { CONFIG } from "../config/index.js";
-import { checkAllLeadsForAppointments } from "./appointments/scheduleAppointments.js";
+import { checkAllLeadsForAppointments, scheduleAppointmentReminders } from "./appointments/scheduleAppointments.js";
 
 const MONGODB_URI = CONFIG.MONGODB_URI;
 
@@ -17,6 +17,7 @@ try {
   console.log("Connected to MongoDB for Appointment Booking.");
 
   await checkAllLeadsForAppointments(); // start check on run once 
+  scheduleAppointmentReminders(); 
 
   // Check for new appointments every 10 minutes
   setInterval(async () => {
