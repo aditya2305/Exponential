@@ -67,8 +67,12 @@ export const checkAllLeadsForAppointments = async () => {
         await appt.save();
 
         // Format time in a more readable way
-        const localTime = parsed.format('h:mm A');
-        const localDate = parsed.format('MMMM D, YYYY');
+        const localTime = moment.utc(appt.appointmentDate)
+          .tz(timezone)
+          .format('h:mm A');
+        const localDate = moment.utc(appt.appointmentDate)
+          .tz(timezone)
+          .format('MMMM D, YYYY');
 
         await sendSlickTextMessage(
           lead.slickTextContactId,
@@ -124,7 +128,7 @@ export const scheduleAppointmentReminders = () => {
             { $set: { processing: true } }
           );
 
-          const appointmentTime = moment(appt.appointmentDate).tz(appt.timeZone);
+          const appointmentTime = moment.utc(appt.appointmentDate).tz(appt.timeZone);
           const localTime = appointmentTime.format('h:mm A');
           const localDate = appointmentTime.format('MMMM D, YYYY');
           
