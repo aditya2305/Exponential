@@ -156,7 +156,7 @@ export const scheduleAppointmentReminders = () => {
             );
 
           } catch (err) {
-            console.error(`Error making call for appointment ${appt._id}:`, err);
+            console.error("Twillio call error");
           }
 
           // Mark as called
