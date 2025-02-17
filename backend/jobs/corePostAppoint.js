@@ -61,7 +61,7 @@ const checkAndNotifyUpcomingAppointments = async () => {
           );
           await sendTelegramMessage(
             CONFIG.TELEGRAM.ADMIN_CHAT_ID,
-            `📬 Morning reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
+            `📬 Morning reminder sent to ${appt.phoneNumber}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { morningReminder: true }
@@ -78,7 +78,7 @@ const checkAndNotifyUpcomingAppointments = async () => {
           );
           await sendTelegramMessage(
             CONFIG.TELEGRAM.ADMIN_CHAT_ID,
-            `⏰ 1-hour reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
+            `⏰ 1-hour reminder sent to ${appt.phoneNumber}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { hourReminder: true }
@@ -95,7 +95,7 @@ const checkAndNotifyUpcomingAppointments = async () => {
           );
           await sendTelegramMessage(
             CONFIG.TELEGRAM.ADMIN_CHAT_ID,
-            `⚡ 5-minute reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
+            `⚡ 5-minute reminder sent to ${appt.phoneNumber}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { preCallNotified: true }
