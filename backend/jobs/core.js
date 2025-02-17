@@ -44,7 +44,11 @@ const processAgedLeads = async () => {
         //   ? `Still looking for health insurance ${lead.fullName.split(' ')[0]}? STOP to end`
         //   : "Still looking for health insurance? STOP to end";
 
-        const messageText = "I noticed you submitted an application a while back for health insurance. You’re probably covered, but you’re probably not getting the best price possible. We took a look at your best rates for 2025, would you be available for a quick call to go over your options? Reply STOP to end.";
+        // const messageText = "I noticed you submitted an application a while back for health insurance. You're probably covered, but you're probably not getting the best price possible. We took a look at your best rates for 2025, would you be available for a quick call to go over your options? Reply STOP to end.";
+        
+        const messageText = lead.fullName 
+          ? `Hey ${lead.fullName.split(' ')[0]},\n\nThis is your friendly update for the health insurance quote you submitted a while back.\n\nI'm reaching out today because after getting the most up to date rates, I think you could be paying a lot less for good coverage.\n\nReply YES to discuss, or STOP to end`
+          : `Hey there,\n\nThis is your friendly update for the health insurance quote you submitted a while back.\n\nI'm reaching out today because after getting the most up to date rates, I think you could be paying a lot less for good coverage.\n\nReply YES to discuss, or STOP to end`;
 
         const existingContact = await findExistingContact(lead.phoneNumber);
 

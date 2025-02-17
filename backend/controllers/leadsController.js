@@ -75,7 +75,12 @@ export const addNewLeadSlickText = async (req, res) => {
     //   ? `Thank you for your interest in health insurance ${fullName.split(' ')[0]}! How can I assist you today? STOP to end`
     //   : "Thank you for your interest in health insurance! How can I assist you today? STOP to end";
 
-    let messageText = "Thank you for your health insurance quote submission. You’re probably already speaking to someone, but you’re probably not getting the best price possible. We took a look at your best rates for 2025, would you be available for a quick call to go over your options? Reply STOP to end";
+    // let messageText = "Thank you for your health insurance quote submission. You're probably already speaking to someone, but you're probably not getting the best price possible. We took a look at your best rates for 2025, would you be available for a quick call to go over your options? Reply STOP to end";
+    
+    let messageText = fullName 
+      ? `${fullName.split(' ')[0]}, this is Julie.\n\nThank you for your health quote submission.\n\n${zipcode ? `Just pulled up your cheapest 2025 ${getStateFromZipCode(zipcode)} rates and you might be surprised by these low prices.\n\n` : 'Just pulled up your cheapest 2025 rates and you might be surprised by these low prices.\n\n'}Reply YES to discuss, or STOP to end`
+      : `This is Julie.\n\nThank you for your health quote submission.\n\n${zipcode ? `Just pulled up your cheapest 2025 ${getStateFromZipCode(zipcode)} rates and you might be surprised by these low prices.\n\n` : 'Just pulled up your cheapest 2025 rates and you might be surprised by these low prices.\n\n'}Reply YES to discuss, or STOP to end`;
+      
 
     if (existingContact) {
       contactId = existingContact.contact_id;
