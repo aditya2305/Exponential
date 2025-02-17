@@ -3,6 +3,7 @@ import moment from 'moment-timezone';
 import { sendSlickTextMessage } from "./slicktext/sendSlickTextMessage.js";
 import { CONFIG } from "../config/index.js";
 import Appointment from "../models/appointmentModel.js";
+import { sendTelegramMessage } from "./telegram/sendTelegramMessage.js";
 
 const { MONGODB_URI } = CONFIG;
 
@@ -24,7 +25,6 @@ const checkAndNotifyUpcomingAppointments = async () => {
     const endOfDay = moment().endOf('day');
 
     // Find all upcoming appointments for today that haven't been called
-    // and don't need rescheduling
     const todaysAppointments = await Appointment.find({
       called: false,
       appointmentDate: {
@@ -34,8 +34,10 @@ const checkAndNotifyUpcomingAppointments = async () => {
     });
 
     for (const appt of todaysAppointments) {
-      console.log("Processing appointment:", appt._id);
+      
       try {
+        console.log("Processing appointment:", appt._id);
+
         // Validate timezone
         if (!moment.tz.zone(appt.timeZone)) {
           console.error(`Invalid timezone ${appt.timeZone} for appointment ${appt._id}`);
@@ -52,9 +54,14 @@ const checkAndNotifyUpcomingAppointments = async () => {
         if (!appt.morningReminder && 
             nowInAppointmentTZ.hour() === 11 && 
             nowInAppointmentTZ.minute() < 5) {  // Only check in first 5 minutes of 11 AM
+          const message = `Good morning, just confirming we will be speaking at ${localTime}. Look forward to speaking with you.`;
           await sendSlickTextMessage(
             appt.slickTextContactId,
-            `Good morning, just confirming we will be speaking at ${localTime}. Look forward to speaking with you.`
+            message
+          );
+          await sendTelegramMessage(
+            CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+            `📬 Morning reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { morningReminder: true }
@@ -64,9 +71,14 @@ const checkAndNotifyUpcomingAppointments = async () => {
         // 1-hour reminder
         if (!appt.hourReminder && 
             appointmentTime.isBetween(oneHourFromNow, oneHourFromNow.clone().add(5, 'minutes'))) {
+          const message = "Hey, just circling back. Will be calling you within the hour";
           await sendSlickTextMessage(
             appt.slickTextContactId,
-            "Hey, just circling back. Will be calling you within the hour"
+            message
+          );
+          await sendTelegramMessage(
+            CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+            `⏰ 1-hour reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { hourReminder: true }
@@ -76,14 +88,21 @@ const checkAndNotifyUpcomingAppointments = async () => {
         // 5-minute reminder
         if (!appt.preCallNotified && 
             appointmentTime.isBetween(fiveMinutesFromNow, fiveMinutesFromNow.clone().add(2, 'minutes'))) {
+          const message = "Hi there, just a reminder of our meeting in about 5 min.";
           await sendSlickTextMessage(
             appt.slickTextContactId,
-            "Hi there, just a reminder of our meeting in 5 min."
+            message
+          );
+          await sendTelegramMessage(
+            CONFIG.TELEGRAM.ADMIN_CHAT_ID,
+            `⚡ 5-minute reminder sent to ${appt.slickTextContactId}\nMeeting at: ${localTime}\nMessage: "${message}"`
           );
           await Appointment.findByIdAndUpdate(appt._id, { 
             $set: { preCallNotified: true }
           });
         }
+
+        console.log("Done");
 
       } catch (err) {
         console.error(`Error processing notifications for appointment ${appt._id}:`, err);
