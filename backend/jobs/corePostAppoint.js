@@ -1,17 +1,16 @@
 import mongoose from 'mongoose';
 import moment from 'moment-timezone';
 import { sendSlickTextMessage } from "./slicktext/sendSlickTextMessage.js";
-import { sendTelegramMessage } from "./telegram/sendTelegramMessage.js";
 import { CONFIG } from "../config/index.js";
 import Appointment from "../models/appointmentModel.js";
 
-const { MONGODB_URI, ADMIN_CHAT_ID } = CONFIG;
+const { MONGODB_URI } = CONFIG;
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('Connected to MongoDB for Pre-Call Notifications'))
+.then(() => console.log('Connected to MongoDB for Appointment Notifications'))
 .catch(err => {
   console.error('MongoDB connection error:', err);
   process.exit(1);
@@ -20,58 +19,84 @@ mongoose.connect(MONGODB_URI, {
 const checkAndNotifyUpcomingAppointments = async () => {
   try {
     const now = moment();
+    const oneHourFromNow = moment().add(1, 'hour');
     const fiveMinutesFromNow = moment().add(5, 'minutes');
+    const endOfDay = moment().endOf('day');
 
-    // Find appointments that:
-    // 1. Haven't been called yet
-    // 2. Are happening in ~5 minutes
-    // 3. Haven't been pre-notified
-    const upcomingAppointments = await Appointment.find({
+    // Find all upcoming appointments for today that haven't been called
+    // and don't need rescheduling
+    const todaysAppointments = await Appointment.find({
       called: false,
-      preCallNotified: { $ne: true },
       appointmentDate: {
-        $gt: now.toDate(),
-        $lte: fiveMinutesFromNow.toDate()
+        $gte: now.toDate(),
+        $lte: endOfDay.toDate()
       }
     });
 
-    for (const appt of upcomingAppointments) {
+    for (const appt of todaysAppointments) {
+      console.log("Processing appointment:", appt._id);
       try {
-        const localTime = moment(appt.appointmentDate)
-          .tz(appt.timeZone)
-          .format('YYYY-MM-DD HH:mm z');
+        // Validate timezone
+        if (!moment.tz.zone(appt.timeZone)) {
+          console.error(`Invalid timezone ${appt.timeZone} for appointment ${appt._id}`);
+          continue;
+        }
 
-        // Send message to user
-        await sendSlickTextMessage(
-          appt.slickTextContactId,
-          "Hey, just circling back. Will be giving you call in the next 5 minutes for the appointment."
-        );
+        const appointmentTime = moment(appt.appointmentDate).tz(appt.timeZone);
+        const localTime = appointmentTime.format('h:mm A');
+        
+        // Get current time in appointment's timezone
+        const nowInAppointmentTZ = moment().tz(appt.timeZone);
+        
+        // Morning reminder at 11 AM in appointment's timezone
+        if (!appt.morningReminder && 
+            nowInAppointmentTZ.hour() === 11 && 
+            nowInAppointmentTZ.minute() < 5) {  // Only check in first 5 minutes of 11 AM
+          await sendSlickTextMessage(
+            appt.slickTextContactId,
+            `Good morning, just confirming we will be speaking at ${localTime}. Look forward to speaking with you.`
+          );
+          await Appointment.findByIdAndUpdate(appt._id, { 
+            $set: { morningReminder: true }
+          });
+        }
 
-        // Notify admin via Telegram
-        await sendTelegramMessage(
-          ADMIN_CHAT_ID,
-          `🔔 *Pre-Call Notification Sent*\nPhone: ${appt.phoneNumber}\nScheduled Time: ${localTime} (${appt.timeZone})`,
-          { parse_mode: "Markdown" }
-        );
+        // 1-hour reminder
+        if (!appt.hourReminder && 
+            appointmentTime.isBetween(oneHourFromNow, oneHourFromNow.clone().add(5, 'minutes'))) {
+          await sendSlickTextMessage(
+            appt.slickTextContactId,
+            "Hey, just circling back. Will be calling you within the hour"
+          );
+          await Appointment.findByIdAndUpdate(appt._id, { 
+            $set: { hourReminder: true }
+          });
+        }
 
-        // Mark appointment as pre-notified
-        await Appointment.findByIdAndUpdate(
-          appt._id,
-          { $set: { preCallNotified: true } }
-        );
+        // 5-minute reminder
+        if (!appt.preCallNotified && 
+            appointmentTime.isBetween(fiveMinutesFromNow, fiveMinutesFromNow.clone().add(2, 'minutes'))) {
+          await sendSlickTextMessage(
+            appt.slickTextContactId,
+            "Hi there, just a reminder of our meeting in 5 min."
+          );
+          await Appointment.findByIdAndUpdate(appt._id, { 
+            $set: { preCallNotified: true }
+          });
+        }
 
-        console.log(`Pre-call notification sent for appointment ${appt._id}`);
       } catch (err) {
-        console.error(`Error processing pre-call notification for appointment ${appt._id}:`, err);
+        console.error(`Error processing notifications for appointment ${appt._id}:`, err);
       }
     }
   } catch (err) {
-    console.error("Error in pre-call notifications:", err);
+    console.error("Error in appointment notifications:", err);
   }
 };
 
-// Run the check every minute
-setInterval(checkAndNotifyUpcomingAppointments, 60 * 1000);
+// Run the check every 5 minutes
+const FIVE_MINUTES = 5 * 60 * 1000;
+setInterval(checkAndNotifyUpcomingAppointments, FIVE_MINUTES);
 
 // Also run immediately on startup
 checkAndNotifyUpcomingAppointments();

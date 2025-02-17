@@ -46,10 +46,18 @@ const appointmentSchema = new mongoose.Schema(
       type: String, 
       default: "" 
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
+    morningReminder: {
+      type: Boolean,
+      default: false
     },
+    hourReminder: {
+      type: Boolean,
+      default: false
+    },
+    lastMessageCount: {
+      type: Number,
+      default: 0
+    }
   },
   { timestamps: true }
 );

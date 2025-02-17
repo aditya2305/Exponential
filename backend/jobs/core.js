@@ -6,7 +6,7 @@ import Lead from '../models/leadModel.js';
 import { sendSlickTextMessage } from './slicktext/sendSlickTextMessage.js';
 import { findExistingContact, sendInitialMessage } from './slicktext/contactManagement.js';
 
-const AGED_LEADS_LIMIT = CONFIG.AGED_LEADS_LIMIT || 25; 
+const AGED_LEADS_LIMIT = CONFIG.AGED_LEADS_LIMIT || 10; 
 
 const processAgedLeads = async () => {
   try {

@@ -1,6 +1,6 @@
 import Lead from "../../models/leadModel.js";
 import Appointment from "../../models/appointmentModel.js";
-import { checkForAppointment } from "./extractAppointment.js";
+import { checkForAppointment } from "../claude/extractAppointment.js";
 import { sendTelegramMessage } from "../telegram/sendTelegramMessage.js";
 import schedule from "node-schedule";
 import moment from "moment-timezone";

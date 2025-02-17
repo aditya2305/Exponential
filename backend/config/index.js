@@ -116,7 +116,7 @@ export const CONFIG = {
     '99500-99999': 'Alaska'
   },
 
-  AGED_LEADS_LIMIT: 25,
+  AGED_LEADS_LIMIT: 10,
 };
 
 // Timezone utilities
