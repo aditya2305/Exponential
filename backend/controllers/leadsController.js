@@ -51,6 +51,8 @@ export const addNewLeadSlickText = async (req, res) => {
     // Check if contact exists in SlickText
     const existingContact = await findExistingContact(normalizedPhone);
 
+    console.log("Existing contact - ", existingContact);
+
     let contactId;
     // let messageText = fullName 
     //   ? `Hi ${fullName.split(' ')[0]}, this is Julie.` 
@@ -80,7 +82,7 @@ export const addNewLeadSlickText = async (req, res) => {
     let messageText = fullName 
       ? `${fullName.split(' ')[0]}, this is Julie.\n\nThank you for your health quote submission.\n\n${zipcode ? `Just pulled up your cheapest 2025 ${getStateFromZipCode(zipcode)} rates and you might be surprised by these low prices.\n\n` : 'Just pulled up your cheapest 2025 rates and you might be surprised by these low prices.\n\n'}Reply YES to discuss, or STOP to end`
       : `This is Julie.\n\nThank you for your health quote submission.\n\n${zipcode ? `Just pulled up your cheapest 2025 ${getStateFromZipCode(zipcode)} rates and you might be surprised by these low prices.\n\n` : 'Just pulled up your cheapest 2025 rates and you might be surprised by these low prices.\n\n'}Reply YES to discuss, or STOP to end`;
-      
+
 
     if (existingContact) {
       contactId = existingContact.contact_id;

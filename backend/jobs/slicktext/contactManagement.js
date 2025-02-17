@@ -39,17 +39,46 @@ export const sendInitialMessage = async (phoneNumber, contactData = {}, messageT
 };
 
 export const findExistingContact = async (phoneNumber) => {
-  const normalizedPhone = phoneNumber.replace(/\D/g, '');
-  const contactsResponse = await axios.get(
-    `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/contacts/`,
-    {
-      headers: {
-        'Authorization': `Bearer ${CONFIG.SLICKTEXT.API_KEY}`
-      }
-    }
-  );
+  try {
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    const searchNumbers = [`+1${normalizedPhone}`, `+${normalizedPhone}`];
+    let page = 1;
+    const pageSize = 50; // Default page size from SlickText docs
 
-  return contactsResponse.data.data.find(
-    contact => contact.mobile_number === `+1${normalizedPhone}`
-  );
+    while (true) {
+      const contactsResponse = await axios.get(
+        `${CONFIG.SLICKTEXT.BASE_URL}/brands/${CONFIG.SLICKTEXT.BRAND_ID}/contacts`,
+        {
+          params: {
+            page,
+            pageSize
+          },
+          headers: {
+            'Authorization': `Bearer ${CONFIG.SLICKTEXT.API_KEY}`
+          }
+        }
+      );
+
+      // Check current page for the contact
+      const foundContact = contactsResponse.data.data.find(
+        contact => searchNumbers.includes(contact.mobile_number)
+      );
+
+      if (foundContact) {
+        return foundContact;
+      }
+
+      // Check if there are more pages
+      if (!contactsResponse.data.pagingData.hasMore) {
+        break;
+      }
+
+      page++;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error in findExistingContact:", error.response?.data || error);
+    throw error;
+  }
 };
