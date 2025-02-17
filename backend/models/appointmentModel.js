@@ -57,6 +57,10 @@ const appointmentSchema = new mongoose.Schema(
     lastMessageCount: {
       type: Number,
       default: 0
+    },
+    processing: {
+      type: Boolean,
+      default: false
     }
   },
   { timestamps: true }

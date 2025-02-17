@@ -66,14 +66,18 @@ export const checkAllLeadsForAppointments = async () => {
         });
         await appt.save();
 
+        // Format time in a more readable way
+        const localTime = parsed.format('h:mm A');
+        const localDate = parsed.format('MMMM D, YYYY');
+
         await sendSlickTextMessage(
           lead.slickTextContactId,
-          `📅 Your appointment has been confirmed for ${parsed.format("YYYY-MM-DD HH:mm z")} (${timezone})`
+          `📅 Your appointment has been confirmed for ${localDate} at ${localTime}`
         );
 
         const msgId = await sendTelegramMessage(
           ADMIN_CHAT_ID,
-          `📅 *New Appointment Booked*\nPhone: ${lead.phoneNumber}\nDate & Time: ${parsed.format("YYYY-MM-DD HH:mm z")} (${timezone})`,
+          `📅 *New Appointment Booked*\nPhone: ${lead.phoneNumber}\nDate & Time: ${localDate} at ${localTime}`,
           { parse_mode: "Markdown" }
         );
 
@@ -104,34 +108,34 @@ export const scheduleAppointmentReminders = () => {
       
       // First, mark old uncalled appointments as called
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      await Appointment.updateMany(
-        {
-          called: false,
-          appointmentDate: { $lt: fiveMinutesAgo }
-        },
-        {
-          $set: { called: true }
-        }
-      );
-
-      // Then process current appointments as usual
+      
+      // Add processing flag to prevent duplicate processing
       const dueAppointments = await Appointment.find({
         called: false,
+        processing: { $ne: true }, // Only get appointments not being processed
         appointmentDate: { $lte: now },
       });
 
       for (const appt of dueAppointments) {
         try {
-          const localTime = moment(appt.appointmentDate).tz(appt.timeZone).format("YYYY-MM-DD HH:mm z");
+          // Set processing flag immediately
+          await Appointment.findByIdAndUpdate(
+            appt._id,
+            { $set: { processing: true } }
+          );
+
+          const appointmentTime = moment(appt.appointmentDate).tz(appt.timeZone);
+          const localTime = appointmentTime.format('h:mm A');
+          const localDate = appointmentTime.format('MMMM D, YYYY');
           
           await sendSlickTextMessage(
             appt.slickTextContactId,
-            `🔔 Hi! It's time for your scheduled appointment on ${localTime}.`
+            `🔔 Hi! It's time for your scheduled appointment on ${localDate} at ${localTime}.`
           );
 
           const adminMsg = await sendTelegramMessage(
             ADMIN_CHAT_ID,
-            `🔔 *Appointment Reminder*\nPhone: ${appt.phoneNumber}\n*Date & Time:* ${localTime} (${appt.timeZone})`,
+            `🔔 *Appointment Reminder*\nPhone: ${appt.phoneNumber}\n*Date & Time:* ${localDate} at ${localTime}`,
             { parse_mode: "Markdown" }
           );
 
@@ -151,7 +155,7 @@ export const scheduleAppointmentReminders = () => {
             // Send Telegram notification directly
             await sendTelegramMessage(
               ADMIN_CHAT_ID,
-              `📞 *Call Initiated*\nPhone: ${appt.phoneNumber}\nScheduled Time: ${localTime} (${appt.timeZone})`,
+              `📞 *Call Initiated*\nPhone: ${appt.phoneNumber}\nScheduled Time: ${localDate} at ${localTime}`,
               { parse_mode: "Markdown" }
             );
 
@@ -159,10 +163,18 @@ export const scheduleAppointmentReminders = () => {
             console.error("Twillio call error");
           }
 
-          // Mark as called
+          // Mark as called and remove processing flag
           await Appointment.findByIdAndUpdate(
             appt._id,
-            { $set: { called: true } }
+            { 
+              $set: { 
+                called: true, 
+                processing: false,
+                preCallNotified: false, 
+                morningReminder: false, 
+                hourReminder: false 
+              } 
+            }
           );
 
           console.log(`Successfully marked appointment ${appt._id} for ${appt.phoneNumber} as called=true`);
