@@ -45,6 +45,11 @@ const leadSchema = new mongoose.Schema({
 
   interested: {
     type: Boolean,
+    default: null
+  },
+
+  followedUp: {
+    type: Boolean,
     default: false
   },
 
@@ -52,11 +57,6 @@ const leadSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-
-  lastResponseDate: {
-    type: Date,
-    default: null
-  }
 
 }, {
   timestamps: true

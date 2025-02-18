@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
+import schedule from "node-schedule";
 import moment from "moment-timezone";
 import { CONFIG } from "../config/index.js";
 import Lead from "../models/leadModel.js";
 import { sendSlickTextMessage } from "./slicktext/sendSlickTextMessage.js";
-import { sendTelegramMessage } from "./telegram/sendTelegramMessage.js";
+import { checkLeadInterest } from "./claude/checkInterest.js";
 
 const { MONGODB_URI, ADMIN_CHAT_ID } = CONFIG;
 
@@ -18,63 +19,108 @@ mongoose.connect(MONGODB_URI, {
   process.exit(1);
 });
 
-const checkAndSendFollowUps = async () => {
+const processFollowUps = async () => {
   try {
     const oneDayAgo = moment().subtract(24, 'hours').toDate();
     
-    // Find leads that:
-    // 1. Have messages (indicating interest)
-    // 2. Haven't been messaged in 24 hours
-    // 3. Haven't unsubscribed
-    // 4. Have a SlickText contact ID
     const leads = await Lead.find({
-      'messages.0': { $exists: true },
-      'messages': {
-        $not: {
-          $elemMatch: {
-            createdAt: { $gt: oneDayAgo }
-          }
-        }
-      },
       unsubscribed: false,
-      slickTextContactId: { $exists: true, $ne: null }
-    });
+      followedUp: false,
+      interested: { $ne: false },
+      messages: { 
+        $exists: true,
+        $not: { $size: 0 }
+      },
+      $expr: {
+        $and: [
+          { $gte: [{ $size: "$messages" }, 2] },
+          { 
+            $eq: [
+              { $arrayElemAt: ["$messages.role", -1] },
+              "assistant"
+            ]
+          },
+          {
+            $lt: [
+              { $arrayElemAt: ["$messages.createdAt", -1] },
+              oneDayAgo
+            ]
+          }
+        ]
+      }
+    }).select('messages slickTextContactId');
+
+    console.log(`Processing ${leads.length} leads for follow-up`);
 
     for (const lead of leads) {
       try {
+        if (!lead.slickTextContactId) continue;
+
+        // Get only approved messages
+        const approvedMessages = lead.messages.filter(m => m.approved);
+        if (approvedMessages.length < 2) continue;
+
+        // Check if lead showed interest
+        const interestCheck = await checkLeadInterest(approvedMessages);
+        if (!interestCheck.interested) {
+          lead.interested = false;
+          await lead.save();
+          continue;
+        }
+
         // Send follow-up message
-        await sendSlickTextMessage(
-          lead.slickTextContactId,
-          "Hello, have you given up on this?"
-        );
+        const followUpMessage = "Hello, I noticed you were interested in health coverage. Have you given up on this? I'd still love to help you find the best rates.";
+        
+        await sendSlickTextMessage(lead.slickTextContactId, followUpMessage);
 
-        // Notify admin
-        await sendTelegramMessage(
-          ADMIN_CHAT_ID,
-          `📱 *Follow-up Sent*\nPhone: ${lead.phoneNumber}\nLast Message: ${moment(lead.messages[lead.messages.length - 1].createdAt).format('YYYY-MM-DD HH:mm')}`,
-          { parse_mode: "Markdown" }
-        );
-
-        // Add the follow-up message to the lead's messages
-        lead.messages.push({
-          role: "assistant",
-          content: "Hello, have you given up on this?",
-          approved: true
-        });
+        // // Add message to lead's history and mark as followed up
+        // lead.messages.push({
+        //   role: 'assistant',
+        //   content: followUpMessage,
+        //   approved: true,
+        //   processed: true
+        // });
+        lead.followedUp = true;
         await lead.save();
 
-      } catch (err) {
-        console.error(`Error processing follow-up for lead ${lead._id}:`, err);
+        // Wait 1 second between messages
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (error) {
+        console.error(`Error processing follow-up for lead ${lead._id}:`, error);
       }
     }
-  } catch (err) {
-    console.error("Error in follow-up service:", err);
+  } catch (error) {
+    console.error('Error in processFollowUps:', error);
   }
 };
 
-// Check every hour
-setInterval(checkAndSendFollowUps, 60 * 60 * 1000);
+// Comment out the scheduled job
+// const job = schedule.scheduleJob({
+//   hour: 11,
+//   minute: 0,
+//   tz: 'America/New_York'
+// }, processFollowUps);
 
-// Initial check on startup
-checkAndSendFollowUps();
+// Instead, run immediately after MongoDB connects
+mongoose.connection.once('open', () => {
+  console.log('MongoDB connected successfully for follow-ups');
+  processFollowUps();
+});
+
+// Connect to MongoDB
+const main = async () => {
+  try {
+    await mongoose.connect(CONFIG.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+  } catch (error) {
+    console.error('Error connecting to MongoDB:', error);
+    process.exit(1);
+  }
+};
+
+// Run the main function
+main();
 

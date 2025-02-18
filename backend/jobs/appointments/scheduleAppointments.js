@@ -189,9 +189,6 @@ export const scheduleAppointmentReminders = () => {
               $set: { 
                 called: true, 
                 processing: false,
-                preCallNotified: false, 
-                morningReminder: false, 
-                hourReminder: false 
               } 
             }
           );
