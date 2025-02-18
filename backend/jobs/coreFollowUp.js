@@ -48,42 +48,51 @@ const processFollowUps = async () => {
           }
         ]
       }
-    }).select('messages slickTextContactId');
-
-    console.log(`Processing ${leads.length} leads for follow-up`);
+    }).select('messages slickTextContactId fullName');
 
     for (const lead of leads) {
       try {
-        if (!lead.slickTextContactId) continue;
-
-        // Get only approved messages
-        const approvedMessages = lead.messages.filter(m => m.approved);
-        if (approvedMessages.length < 2) continue;
-
-        // Check if lead showed interest
-        const interestCheck = await checkLeadInterest(approvedMessages);
-        if (!interestCheck.interested) {
-          lead.interested = false;
-          await lead.save();
+        console.log(`\nProcessing lead ${lead._id}:`);
+        if (!lead.slickTextContactId) {
           continue;
         }
 
+        // Get only approved messages
+        const approvedMessages = lead.messages.filter(m => m.approved);
+        if (approvedMessages.length < 2) {
+          continue;
+        }
+        
+        // Check if lead showed interest
+        const interestCheck = await checkLeadInterest(approvedMessages);
+        console.log("interestCheck - ", interestCheck);
+        if (!interestCheck.interested) {
+          await Lead.findByIdAndUpdate(lead._id, { interested: false });
+          continue;
+        }
+  
         // Send follow-up message
         const followUpMessage = "Hello, I noticed you were interested in health coverage. Have you given up on this? I'd still love to help you find the best rates.";
-        
-        await sendSlickTextMessage(lead.slickTextContactId, followUpMessage);
 
-        // // Add message to lead's history and mark as followed up
-        // lead.messages.push({
-        //   role: 'assistant',
-        //   content: followUpMessage,
-        //   approved: true,
-        //   processed: true
-        // });
+        try {
+          await sendSlickTextMessage(lead.slickTextContactId, followUpMessage);
+        } catch (error) {
+          console.error(`Error sending follow-up message to lead ${lead._id}:`);
+          continue;
+        }
+
+        lead.interested = true;
+        // Add message to lead's history and mark as followed up
+        lead.messages.push({
+          role: 'assistant',
+          content: followUpMessage,
+          approved: true,
+          processed: true
+        });
         lead.followedUp = true;
         await lead.save();
 
-        // Wait 1 second between messages
+
         await new Promise(resolve => setTimeout(resolve, 1000));
 
       } catch (error) {
@@ -95,17 +104,16 @@ const processFollowUps = async () => {
   }
 };
 
-// Comment out the scheduled job
-// const job = schedule.scheduleJob({
-//   hour: 11,
-//   minute: 0,
-//   tz: 'America/New_York'
-// }, processFollowUps);
+// Scheduled job to run at 11 AM ET daily
+const job = schedule.scheduleJob({
+  hour: 11,
+  minute: 0,
+  tz: 'America/New_York'
+}, processFollowUps);
 
-// Instead, run immediately after MongoDB connects
+// MongoDB connection confirmation only
 mongoose.connection.once('open', () => {
   console.log('MongoDB connected successfully for follow-ups');
-  processFollowUps();
 });
 
 // Connect to MongoDB

@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config/index.js';
 import Anthropic from '@anthropic-ai/sdk';
-import { Lead } from '../../models/leadModel.js';
+import Lead from '../../models/leadModel.js';
 
 const client = new Anthropic({
   apiKey: CONFIG.ANTHROPIC.API_KEY
@@ -20,18 +20,19 @@ export const checkLeadInterest = async (approvedMessages) => {
       system: "You are a JSON-only response bot. Never include explanatory text.",
       messages: [{
         role: "user",
-        content: `Analyze this conversation and determine if the user expressed interest. Return ONLY a JSON object.
+        content: `Analyze this conversation and determine if the user expressed explicit disinterest. Return ONLY a JSON object.
 
 RULES:
 1. Give priority to the most recent messages (check timestamps)
-2. Look for:
-   - Positive responses like "yes", "sure", "interested", etc.
-   - Questions about the service
-   - Requests for more information
-   - Sharing personal details (age, income, etc.)
-3. Ignore:
-   - Old messages if newer messages show disinterest
-   - Vague or non-committal responses
+2. Default to assuming interest UNLESS there are clear signs of disinterest
+3. Look for explicit disinterest indicators like:
+   - Clear "no" responses
+   - Statements like "not interested", "don't contact me"
+   - Requests to stop communication
+   - Explicit rejection of the service
+4. Ignore:
+   - Vague or non-committal responses (these should not count as disinterest)
+   - Neutral responses (these should not count as disinterest)
    
 CONVERSATION TO ANALYZE:
 ${conversationText}
@@ -41,20 +42,13 @@ Return ONLY this JSON structure:
   "interested": boolean,
 }
 
+NOTE: Return "interested": false ONLY if there is clear, explicit disinterest. Otherwise, return "interested": true.
 REMEMBER: Return ONLY the JSON object. Any other text will cause an error.`
       }]
     });
 
     const result = JSON.parse(response.content[0].text);
-    
-    // Update the lead's interested status if we found interest
-    if (result.interested) {
-      const leadId = approvedMessages[0]._id; // Assuming messages are from the same lead
-      await Lead.findByIdAndUpdate(leadId, { interested: true });
-    }
-
     return result;
-
   } catch (error) {
     console.error("Error checking lead interest:", error);
     return { interested: false, lastUserMessage: null, confidence: 0 };

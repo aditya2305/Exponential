@@ -57,8 +57,8 @@ RULES:
    - For dates mentioning only day (e.g., "the 11th", "on the 15th"):
      * If the day has passed this month, use next month
      * If the day hasn't passed, use current month
-   - Set hasAppointment=true only when appointment is confirmed from assistant
-   - Set hasAppointment to false if only suggesting times without confirmation
+   - VERY IMPORTANT: Set hasAppointment=true only when appointment is confirmed from assistant
+   - IMPORTANT: Set hasAppointment to false if only suggesting times without confirmation
    - IMPORTANT: Set appointmentDateTime to the exact date/time string in format "YYYY-MM-DD HH:mm"
    - IMPORTANT: Always set dates to be in the future from today
    - Ignore vague times like "anytime" or "after 4 PM"
