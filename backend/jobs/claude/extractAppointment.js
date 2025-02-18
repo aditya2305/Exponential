@@ -34,6 +34,11 @@ RULES:
 
 3. For appointment detection:
    - Look for suggested call times in the messages
+   - Check message timestamps to determine chronological order
+   - If you find "Your appointment has been confirmed for..." message:
+     * Extract that date/time
+     * If it's in the past and no newer appointment exists, return hasAppointment: false
+     * If it's in the future, return hasAppointment: false (as it has already been scheduled)
    - Common patterns:
      * "will give you a quick call tomorrow at 2 PM"
      * "Does tomorrow at 2 PM work for you?"

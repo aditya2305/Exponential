@@ -74,10 +74,25 @@ export const checkAllLeadsForAppointments = async () => {
           .tz(timezone)
           .format('MMMM D, YYYY');
 
+        const confirmationMessage = `📅 Your appointment has been confirmed for ${localDate} at ${localTime}`;
+        
+        // Send message to user
         await sendSlickTextMessage(
           lead.slickTextContactId,
-          `📅 Your appointment has been confirmed for ${localDate} at ${localTime}`
+          confirmationMessage
         );
+
+        // Add confirmation message to lead messages
+        await Lead.findByIdAndUpdate(lead._id, {
+          $push: {
+            messages: {
+              role: 'assistant',
+              content: confirmationMessage,
+              approved: true,
+              createdAt: new Date()
+            }
+          }
+        });
 
         const msgId = await sendTelegramMessage(
           ADMIN_CHAT_ID,
