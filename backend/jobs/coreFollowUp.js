@@ -87,7 +87,8 @@ const processFollowUps = async () => {
           role: 'assistant',
           content: followUpMessage,
           approved: true,
-          processed: true
+          processed: true,
+          leadId: lead._id
         });
         lead.followedUp = true;
         await lead.save();

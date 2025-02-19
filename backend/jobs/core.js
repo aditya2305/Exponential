@@ -70,6 +70,7 @@ const processAgedLeads = async () => {
           content: messageText,
           approved: true,
           processed: true,
+          leadId: lead._id
         });
 
         await lead.save();

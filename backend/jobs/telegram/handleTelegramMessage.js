@@ -194,10 +194,21 @@ const handleCallbackQuery = async (callbackQuery) => {
       return;
     }
 
-    const [action, messageId] = callbackQuery.data.split(':');
-    const messageToHandle = await Lead.findOne({ 
-      "messages.messageId": messageId 
-    });
+    // Updated to handle both old and new formats
+    const parts = callbackQuery.data.split(':');
+    const action = parts[0];
+    const messageId = parts[1];
+    const leadId = parts.length > 2 ? parts[2] : null;
+
+    let messageToHandle;
+    
+    if (leadId) {
+      // New approach - direct lead lookup
+      messageToHandle = await Lead.findById(leadId);
+    } else {
+      // Legacy approach
+      messageToHandle = await Lead.findOne({ "messages.messageId": messageId });
+    }
 
     if (!messageToHandle) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
@@ -214,10 +225,7 @@ const handleCallbackQuery = async (callbackQuery) => {
     // Add check for already processed messages
     if (message.processed) {
       const processedMsg = await sendTelegramMessage(ADMIN_CHAT_ID, "This message has already been processed.");
-      // Delete the notification after 2 seconds
-      setTimeout(() => {
-        deleteMessage(processedMsg);
-      }, 2000);
+      setTimeout(() => deleteMessage(processedMsg), 2000);
       return;
     }
 
@@ -232,12 +240,13 @@ const handleCallbackQuery = async (callbackQuery) => {
     await messageToHandle.save();
 
     if (action === 'approve') {
-      await approveMessage(messageId, adminMessageId);
+      await approveMessage(messageId, adminMessageId, leadId);
     } else if (action === 'reject') {
-      await rejectMessage(messageId, adminMessageId);
+      await rejectMessage(messageId, adminMessageId, leadId);
     } else if (action === 'change') {
       pendingMessages.changeMessageId = messageId;
       pendingMessages.changeAdminMessageId = adminMessageId;
+      pendingMessages.leadId = leadId; // Add leadId to pending messages
       const instructionMsg = await sendTelegramMessage(
         ADMIN_CHAT_ID,
         "Please reply to the original message with your updated text.",
@@ -251,6 +260,7 @@ const handleCallbackQuery = async (callbackQuery) => {
     console.error("Error handling callback query:", error);
     pendingMessages.changeMessageId = null;
     pendingMessages.instructionMessageId = null;
+    pendingMessages.leadId = null;
   }
 };
 
@@ -302,7 +312,8 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
       role: "user", 
       content: userText,
       approved: true,
-      processed: true 
+      processed: true,
+      leadId: lead._id
     });
     await lead.save();
     
@@ -321,6 +332,7 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
     // Create assistant message with messageId
     const assistantMessage = {
       messageId: new mongoose.Types.ObjectId().toString(),
+      leadId: lead._id,
       role: "assistant",
       content: assistantText,
       approved: false
@@ -333,9 +345,9 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
     
     const buttons = {
       inline_keyboard: [[
-        { text: '✅ Approve', callback_data: `approve:${assistantMessage.messageId}` },
-        { text: '❌ Reject', callback_data: `reject:${assistantMessage.messageId}` },
-        { text: '✏️ Change', callback_data: `change:${assistantMessage.messageId}` }
+        { text: '✅ Approve', callback_data: `approve:${assistantMessage.messageId}:${lead._id}` },
+        { text: '❌ Reject', callback_data: `reject:${assistantMessage.messageId}:${lead._id}` },
+        { text: '✏️ Change', callback_data: `change:${assistantMessage.messageId}:${lead._id}` }
       ]]
     };
 
@@ -351,9 +363,17 @@ const handleUserMessage = async (chatId, userText, userTgUsername) => {
   }
 };
 
-const approveMessage = async (messageId, adminMessageId) => {
+const approveMessage = async (messageId, adminMessageId, leadId = null) => {
   try {
-    const lead = await Lead.findOne({ "messages.messageId": messageId });
+    let lead;
+    if (leadId) {
+      // New approach - direct lead lookup
+      lead = await Lead.findById(leadId);
+    } else {
+      // Legacy approach
+      lead = await Lead.findOne({ "messages.messageId": messageId });
+    }
+    
     if (!lead) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       return;
@@ -365,10 +385,12 @@ const approveMessage = async (messageId, adminMessageId) => {
       return;
     }
 
+    // Update message with approval
     message.approved = true;
+    if(message.leadId != lead._id) message.leadId = lead._id;
     await lead.save();
 
-    // Send via SlickText instead of Telegram
+    // Send via SlickText
     await sendSlickTextMessage(lead.slickTextContactId, message.content);
     // Comment out Telegram send
     // await sendTelegramMessage(lead.telegramUserId, message.content);
@@ -376,25 +398,27 @@ const approveMessage = async (messageId, adminMessageId) => {
     // Delete the admin message
     await deleteMessage(adminMessageId);
 
-    // Send and delete confirmation message
     const confirmationMsg = await sendTelegramMessage(
       ADMIN_CHAT_ID,
       `✅ Message approved and sent to ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${lead.slickTextContactId}`}`
     );
 
-    setTimeout(async () => {
-      await deleteMessage(confirmationMsg);
-    }, 2000);
-
+    setTimeout(() => deleteMessage(confirmationMsg), 2000);
   } catch (error) {
     console.error("Error in approveMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error approving the message.");
   }
 };
 
-const rejectMessage = async (messageId, adminMessageId) => {
+const rejectMessage = async (messageId, adminMessageId, leadId = null) => {
   try {
-    const lead = await Lead.findOne({ "messages.messageId": messageId });
+    let lead;
+    if (leadId) {
+      lead = await Lead.findById(leadId);
+    } else {
+      lead = await Lead.findOne({ "messages.messageId": messageId });
+    }
+
     if (!lead) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       return;
@@ -403,7 +427,6 @@ const rejectMessage = async (messageId, adminMessageId) => {
     lead.messages = lead.messages.filter(m => m.messageId !== messageId);
     await lead.save();
 
-    // Delete the admin message
     await deleteMessage(adminMessageId);
 
     // // Send rejection notification via SlickText
@@ -422,11 +445,7 @@ const rejectMessage = async (messageId, adminMessageId) => {
       `❌ Rejected message for user ${lead.phoneNumber ? `Phone: ${lead.phoneNumber}` : `Contact ID: ${lead.slickTextContactId}`}`
     );
 
-    // Delete confirmation message after 2 seconds
-    setTimeout(async () => {
-      await deleteMessage(confirmationMsg);
-    }, 2000);
-
+    setTimeout(() => deleteMessage(confirmationMsg), 2000);
   } catch (error) {
     console.error("Error in rejectMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error rejecting the message.");
@@ -442,19 +461,24 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
 
     if (pendingMessages.changeAdminMessageId !== replyToMessageId) {
       const warningMsg = await sendTelegramMessage(ADMIN_CHAT_ID, "Please reply to the original message that needs to be changed.");
-      
-      setTimeout(async () => {
-        await deleteMessage(adminReplyMessageId);
-        await deleteMessage(warningMsg);
+      setTimeout(() => {
+        deleteMessage(adminReplyMessageId);
+        deleteMessage(warningMsg);
       }, 2000);
-      
       return;
     }
 
-    const lead = await Lead.findOne({ "messages.messageId": pendingMessages.changeMessageId });
+    let lead;
+    if (pendingMessages.leadId) {
+      lead = await Lead.findById(pendingMessages.leadId);
+    } else {
+      lead = await Lead.findOne({ "messages.messageId": pendingMessages.changeMessageId });
+    }
+
     if (!lead) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       pendingMessages.changeMessageId = null;
+      pendingMessages.leadId = null;
       return;
     }
 
@@ -462,6 +486,7 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     if (!message) {
       await sendTelegramMessage(ADMIN_CHAT_ID, "Message not found.");
       pendingMessages.changeMessageId = null;
+      pendingMessages.leadId = null;
       return;
     }
 
@@ -530,11 +555,14 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
     }
 
     pendingMessages.changeMessageId = null;
+    pendingMessages.leadId = null;
   } catch (error) {
     console.error("Error in changeNextPendingMessage:", error);
     await sendTelegramMessage(ADMIN_CHAT_ID, "Error changing the message.");
     pendingMessages.changeMessageId = null;
     pendingMessages.changeAdminMessageId = null;
     pendingMessages.instructionMessageId = null;
+    pendingMessages.leadId = null;
   }
 };
+

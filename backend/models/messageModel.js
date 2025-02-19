@@ -7,6 +7,11 @@ const messageSchema = new mongoose.Schema({
     unique: true,
     default: () => new mongoose.Types.ObjectId().toString()
   },
+  leadId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lead',
+    required: true
+  },
   role: {
     type: String,
     required: true,
@@ -28,7 +33,6 @@ const messageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster message lookups
 messageSchema.index({ messageId: 1 });
 
 export default messageSchema; 
