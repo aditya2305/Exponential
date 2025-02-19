@@ -10,7 +10,7 @@ const messageSchema = new mongoose.Schema({
   leadId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lead',
-    required: true
+    required: false
   },
   role: {
     type: String,

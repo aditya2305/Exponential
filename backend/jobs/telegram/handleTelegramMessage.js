@@ -497,6 +497,7 @@ const changeNextPendingMessage = async (updatedText, replyToMessageId, adminRepl
       claudeResponse: message,
       changedResponse: {
         messageId: new mongoose.Types.ObjectId().toString(),
+        leadId: lead._id,
         role: "assistant",
         content: updatedText,
         approved: true
